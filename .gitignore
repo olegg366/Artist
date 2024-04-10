@@ -1,0 +1,8 @@
+~*
+*.ini
+.tmp.driveupload/
+.tmp.drivedownload/
+__pycache__/
+.idea/
+.vscode/
+*.bak
