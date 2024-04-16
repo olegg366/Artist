@@ -1,23 +1,23 @@
 import os
+print(os.system('python compile_cython.py build_ext --inplace'))
+
+from accelerated_trajectory import *
 import numpy as np
-from numpy.ctypeslib import ndpointer
-import ctypes
+from skimage.morphology import label
+from skimage.measure import regionprops
+import matplotlib.pyplot as plt
+from imageio.v3 import imread, imwrite
+from time import sleep
 
-path = 'D:\\Python_progs\\AI\\Artist\\'
-
-os.system(f'gcc -Wall -pedantic -shared -fPIC -o {path}trajectory_lib.dll {path}trajectory_code.c')
-
-doublepp = ndpointer(dtype=np.uintp, ndim=1, flags='C') 
-
-dll = ctypes.CDLL(path + 'trajectory_lib.dll', winmode=0) 
-
-get_trajectory = dll.get_trajectory 
-get_trajectory.argtypes = [ctypes.c_int, ctypes.c_int, doublepp] 
-get_trajectory.restype = None 
-
-def get_args(x: np.ndarray): 
-    xpp = (x.__array_interface__['data'][0] + np.arange(x.shape[0]) * x.strides[0]).astype(np.uintp) 
-    m = ctypes.c_int(x.shape[0]) 
-    n = ctypes.c_int(x.shape[1]) 
-    return m, n, xpp
-
+img = imread('colors.png')
+var = [[i, j] for i in range(-1, 2) for j in range(-1, 2) if not (i == 0 and j == 0)]
+f = (img == 0).sum(axis=2) == 3
+f = ~f
+imwrite('test/in.png', f.astype('uint8') * 255)
+lb = label(~f)
+rgs = regionprops(lb)
+for rg in rgs:
+    if rg.area < 30:
+        f, img = bfs(*rg.coords[0], f, img, var)
+imwrite('test/out.png', f.astype('uint8') * 255)
+imwrite('test/imout.png', img)
