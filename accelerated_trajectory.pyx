@@ -37,6 +37,7 @@ cpdef list bfs(int x, int y, np.ndarray vis, np.ndarray img, list var):
 
 cpdef np.ndarray get_borders(np.ndarray img, np.ndarray ans):
     cdef int val
+    img = img.astype('int')
     for x in range(img.shape[0]):
         if img[x, 0]:
             ans[x, 0][0] = 1
@@ -54,7 +55,7 @@ cpdef np.ndarray get_borders(np.ndarray img, np.ndarray ans):
         if img[0, y]:
             ans[0, y, 1] = 1
         val = img[0, y]
-        y = 0
+        x = 0
         while x < img.shape[0]:
             val = img[x, y]
             while x < img.shape[0] and img[x, y] == val:
@@ -63,4 +64,5 @@ cpdef np.ndarray get_borders(np.ndarray img, np.ndarray ans):
                 ans[min(x, img.shape[0] - 1), y, 1] = 1
             elif x < img.shape[0]:
                 ans[x, y, 1] = 1
+    ans = ans[:, :, 0] | ans[:, :, 1]
     return ans

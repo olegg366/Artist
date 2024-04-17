@@ -1,7 +1,7 @@
 import os
 os.system('python compile_cython.py build_ext --inplace')
 
-from accelerated_trajectory import *
+from accelerated_trajectory import bfs, get_borders
 import numpy as np
 from skimage.morphology import label
 from skimage.measure import regionprops
@@ -27,11 +27,7 @@ rgs = regionprops(lb)
 ret = np.zeros_like(img)
 for reg in rgs:
     regimg = reg.image
-    zrs = np.zeros((*regimg.shape, 2), dtype='bool')
-    cords = get_borders(regimg, zrs)
-    plt.imshow(cords[:, :, 0], cmap='gray')
-    plt.show()
-    sleep(100)
+    cords = get_borders(regimg, np.zeros((*regimg.shape, 2), dtype='bool'))
     dx, dy = reg.bbox[:2]
     cords = np.transpose(np.nonzero(cords))
     cords[:, 0] += dx
