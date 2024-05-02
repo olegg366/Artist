@@ -24,21 +24,14 @@ clr = clrs[2]
 f = (img == clr).sum(axis=2) == 3
 lb = label(f)
 rgs = regionprops(lb)
-ret = np.zeros_like(img)
+ret = np.zeros((*img.shape[:-1], ), dtype='float32')
 for reg in rgs:
     regimg = reg.image
     dx, dy, x1, y1 = reg.bbox
-    xc, yc = reg.centroid_local
-    print(reg.centroid)
     cords, x, y = get_borders(regimg, np.zeros((*regimg.shape, 2), dtype='bool'))
-    nimg = np.zeros((512, 512))
-    nimg[dx:x1, dy:y1] = cords
-    cords, nimg = get_trajectory(x, y, xc, yc, dx, dy, 4, nimg, cords, np.zeros_like(cords), var)
-    plt.imshow(nimg, cmap='gray')
-    plt.show()
-    # cords = np.transpose(np.nonzero(cords))
-    # cords[:, 0] += dx
-    # cords[:, 1] += dy
-    # for cord in cords:
-    #     ret[cord[0], cord[1]] = 1
-imwrite('out/out.png', ret.astype('uint8') * 255)
+    nimg = cords.astype('float32')
+    cords, nimg = get_trajectory(x, y, 2, nimg, cords, np.zeros_like(cords), regimg, var)
+    ret[dx:x1, dy:y1] = nimg
+    # plt.imshow(nimg, cmap='gray')
+    # plt.show()
+imwrite('out/out.png', (ret * 255).astype('uint8'))
