@@ -1,4 +1,5 @@
 cimport numpy as np
+import numpy as pnp
 
 # distutils: define_macros=NPY_NO_DEPRECATED_API=NPY_1_7_API_VERSION
 
@@ -37,10 +38,11 @@ cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img, list var):
     cdef list ans = [vis, img]
     return ans
 
-cpdef list get_borders(np.ndarray img, np.ndarray ans):
+cpdef list get_borders(np.ndarray img):
     cdef int val
     img = img.astype('int')
     cdef int xi, yi
+    cdef np.ndarray ans = pnp.zeros((img.shape[0], img.shape[1], 2), dtype='bool')
     for x in range(img.shape[0]):
         if img[x, 0]:
             ans[x, 0][0] = 1
@@ -83,12 +85,22 @@ cdef list compute_shift(int x1, int y1, int x2, int y2, double d, np.ndarray fil
         yd = (x2 - x1) / ln * d + y1
     return [xd, yd]
 
-cpdef get_trajectory(int x, int y, double d, np.ndarray nimg, np.ndarray img, np.ndarray vis, np.ndarray fil, list var):
+cdef class point: 
+    cdef double x, y
+    def __init__(self, double x, double y): 
+        self.x = x 
+        self.y = y  
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
+
+cpdef list get_trajectory(int x, int y, double d, np.ndarray img, np.ndarray fil, list var):
     cdef list l = [[x, y]]
     cdef list ans = []
     cdef int xn, yn
     cdef list shp = [img.shape[0], img.shape[1]]
     cdef double xf, yf
+    cdef np.ndarray nimg = pnp.zeros((2, 2))
+    cdef np.ndarray vis = pnp.zeros_like(img)
     while len(l) != 0:
         x, y = l[0]
         l.pop(0)
@@ -99,8 +111,67 @@ cpdef get_trajectory(int x, int y, double d, np.ndarray nimg, np.ndarray img, np
                 l.append([xn, yn])
                 xf, yf = compute_shift(xn, yn, x, y, d, fil)
                 if check(int(xf), int(yf), [fil.shape[0], fil.shape[1]]) and fil[int(xf), int(yf)]:
-                    ans.append([xf, yf])
+                    ans.append(point(xf, yf))
                     x, y = map(int, [xf, yf])
-                    nimg[x, y] = 0.7
+                    #nimg[x, y] = 1
                     break
     return [ans, nimg]
+
+cdef bint on_segment(point p, point q, point r): 
+    if (q.x <= max(p.x, r.x)) and (q.x >= min(p.x, r.x)) and (q.y <= max(p.y, r.y)) and (q.y >= min(p.y, r.y)) and not (p == q or r == q): 
+        return True
+    return False
+
+cdef int orientation(point p, point q, point r): 
+    cdef double val = ((q.y - p.y) * (r.x - q.x)) - ((q.x - p.x) * (r.y - q.y)) 
+    if (val > 0): 
+        return 1
+    elif (val < 0): 
+        return 2    
+    else: 
+        return 0
+
+cdef bint intersect(point p1, point q1, point p2, point q2): 
+    cdef int o1 = orientation(p1, q1, p2) 
+    cdef int o2 = orientation(p1, q1, q2) 
+    cdef int o3 = orientation(p2, q2, p1) 
+    cdef int o4 = orientation(p2, q2, q1) 
+
+    if ((o1 != o2) and (o3 != o4)): 
+        return True
+
+    if ((o1 == 0) and on_segment(p1, p2, q1)): 
+        return True
+
+    if ((o2 == 0) and on_segment(p1, q2, q1)): 
+        return True
+
+    if ((o3 == 0) and on_segment(p2, p1, q2)): 
+        return True
+
+    if ((o4 == 0) and on_segment(p2, q1, q2)): 
+        return True
+
+    return False
+
+cdef double det(point a, point b):
+    return a.x * b.y - a.y * b.x
+
+cdef point get_intersection(point p1, point q1, point p2, point q2):
+    cdef list xdiff = [p1.x - q1.x, p2.x - q2.x]
+    cdef list ydiff = [p1.y - q1.y, p2.y - q2.y]
+    cdef double divv = det(xdiff, ydiff)
+    cdef list d = [det(p1, q1), det(p2, q2)]
+    cdef double x = det(d, xdiff) / divv
+    cdef double y = det(d, ydiff) / divv
+    return point(x, y)
+
+cdef list remove_intersections(list line):
+    cdef point intcord
+    cdef int i = 0, j
+    while i < len(line) - 1:
+        j = i + 1
+        while j < len(line) - 1:
+            if intersect(line[i], line[i + 1], line[j], line[j + 1]):
+                print('intersection found on', get_intersection(line[i], line[i + 1], line[j], line[j + 1]))
+    return line

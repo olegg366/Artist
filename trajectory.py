@@ -28,9 +28,9 @@ ret = np.zeros((*img.shape[:-1], ), dtype='float32')
 for reg in rgs:
     regimg = reg.image
     dx, dy, x1, y1 = reg.bbox
-    cords, x, y = get_borders(regimg, np.zeros((*regimg.shape, 2), dtype='bool'))
+    cords, x, y = get_borders(regimg)
     nimg = cords.astype('float32')
-    cords, nimg = get_trajectory(x, y, 2, nimg, cords, np.zeros_like(cords), regimg, var)
+    cords, nimg = get_trajectory(x, y, 2, cords, regimg, var)
     ret[dx:x1, dy:y1] = nimg
     # plt.imshow(nimg, cmap='gray')
     # plt.show()
