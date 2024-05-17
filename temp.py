@@ -1,3 +1,11 @@
-import os
+import numpy as np
 
-os.system(r'gcc -Wall -pedantic -shared -fPIC -o D:\Python_progs\AI\Artist\tests\test_cython\lib.dll D:\Python_progs\AI\Artist\tests\test_cython\test.c')
+a = np.array([[0, 1, 0], 
+              [0, 0, 0],
+              [1, 0, 1]])
+
+b = np.array([[0, 1, 0], 
+              [0, 1, 0],
+              [1, 0, 1]])
+
+print(list(zip(*np.nonzero(a == b))))
