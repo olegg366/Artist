@@ -1,16 +1,45 @@
 cimport numpy as np
-from time import sleep
 import math
 import numpy as pnp
 
-# define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+cdef list var = [[i, j] for i in range(-1, 2) for j in range(-1, 2) if not (i == 0 and j == 0)]
+cdef class point: 
+    cdef public double x, y
+    def __cinit__(self, double x, double y): 
+        self.x = x 
+        self.y = y  
+
+    def __repr__(self):
+        return f'point({self.x}, {self.y})'
+
+    def __eq__(self, other):
+        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2) < 1e-6
+
+    def __str__(self):
+        return str(self.x) + ' ' + str(self.y)
+
+    def __mod__(self, point b):
+        return self.x * b.y - self.y * b.x
+    
+    def __mul__(self, point b):
+        return self.x * b.x + self.y * b.y
+
+    cpdef point seg(self, point b):
+        return point(b.x - self.x, b.y - self.y)
+    
+    cpdef double len(self):
+        return (self.x ** 2 + self.y ** 2) ** 0.5
+
+    cpdef double dist(self, point b):
+        return ((self.x - b.x) ** 2 + (self.y - b.y) ** 2) ** 0.5
+
 
 cdef bint check(int x, int y, list shape):
     if x >= 0 and y >= 0 and x < shape[0] and y < shape[1]:
         return True
     return False
 
-cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img, list var):
+cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img):
     cdef np.ndarray vis1 = vis.copy()
     vis[x, y] = 1
     cdef list ln = [[x, y, 0, [0, 0, 0]]]
@@ -40,7 +69,7 @@ cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img, list var):
     cdef list ans = [vis, img]
     return ans
 
-cpdef np.ndarray get_borders(np.ndarray img):
+cdef list get_borders(np.ndarray img, double sx, double sy):
     cdef int val
     img = img.astype('int')
     cdef np.ndarray ans = pnp.zeros((img.shape[0], img.shape[1], 2), dtype='bool')
@@ -70,100 +99,104 @@ cpdef np.ndarray get_borders(np.ndarray img):
                 ans[min(x, img.shape[0] - 1), y, 1] = 1
             elif x < img.shape[0]:
                 ans[x, y, 1] = 1
+    
+    cdef list l 
+    cdef list ansp = []
+    cdef int xn, yn
     ans = ans[:, :, 0] | ans[:, :, 1]
+    cdef np.ndarray vis = pnp.zeros_like(ans)
+    while (vis == ans).sum().sum() != ans.shape[0] * ans.shape[1]:
+        l = [list(zip(*pnp.nonzero(ans & (~vis))))[0]]
+        ansp.append(point(l[0][0] + sx, l[0][1] + sy))
+        while len(l) != 0:
+            x, y = l[0]
+            vis[x, y] = 1
+            l = l[1:]
+            for dx, dy in var:
+                xn, yn = x + dx, y + dy
+                if check(xn, yn, [img.shape[0], img.shape[1]]) and ans[xn, yn] and not vis[xn, yn]:
+                    ansp.append(point(xn + sx, yn + sy))
+                    l.append([xn, yn])
+                    vis[xn, yn] = 1
+                    break
+    return ansp
+
+cdef point compute_shift(point a, point b, double d, list polygon):
+    cdef double ln = a.dist(b)
+    if a == b:
+        return point(0, 0)
+    cdef double xd = (b.y - a.y) / ln * d + a.x
+    cdef double yd = (a.x - b.x) / ln * d + a.y
+    if not in_polygon(point(xd, yd), polygon):
+        xd = (a.y - b.y) / ln * d + a.x
+        yd = (b.x - a.x) / ln * d + a.y
+    return point(xd, yd)
+
+cdef double cos(point a, point b):
+    return a * b / (a.len() * b.len())
+
+cdef double get_angle(point a, point b):
+    return math.atan2(a % b, a * b)
+
+cdef bint check_ray(point a, point b, point p):
+    return (a.seg(b) % a.seg(p) == 0) and (a.seg(b) * a.seg(p) >= 0)
+
+cdef bint check_seg(point a, point b, point p):
+    return check_ray(a, b, p) and check_ray(b, a, p)
+
+cdef bint in_polygon(a, list p):
+    cdef double angle = 0
+    cdef int j
+    cdef point v1, v2
+    for i in range(len(p)):
+        j = (i + 1) % len(p)
+        if check_seg(p[i], p[j], a):
+            return False
+        v1 = a.seg(p[i])
+        v2 = a.seg(p[j])
+        angle += get_angle(v1, v2)
+    angle = abs(angle)
+    return angle >= math.pi 
+
+cdef list component_fill(double d, list cords):
+    cdef point shift
+    cdef list ans = []
+    for i in range(len(cords)):
+        shift = compute_shift(cords[i], cords[(i + 1) % len(cords)], d, cords)
+        ans.append(shift)
+    if ans:
+        ans.extend(component_fill(d, ans))
     return ans
 
-cdef list compute_shift(int x1, int y1, int x2, int y2, double d, np.ndarray fil):
-    cdef double ln = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
-    cdef double xd = (y2 - y1) / ln * d + x1
-    cdef double yd = (x1 - x2) / ln * d + y1
-    if not check(int(xd), int(yd), [fil.shape[0], fil.shape[1]]) or not fil[int(xd), int(yd)]:
-        xd = (y1 - y2) / ln * d + x1
-        yd = (x2 - x1) / ln * d + y1
-    return [xd, yd]
-
-cdef class point: 
-    cdef public double x, y
-    def __init__(self, double x, double y): 
-        self.x = x 
-        self.y = y  
-
-    def __eq__(self, other):
-        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2) < 1e-6
-
-    def __str__(self):
-        return str(self.x) + ' ' + str(self.y)
-
-cpdef list get_trajectory(double d, np.ndarray img, np.ndarray fil, list var):
-    cdef list l = []
+cpdef np.ndarray compute_image(np.ndarray img, int d, double sx, double sy):
+    print('getting borders...')
+    cdef list cords = get_borders(img, sx, sy)
     cdef list ans = []
-    cdef int xn, yn, prevln = 0, x, y
-    cdef list shp = [img.shape[0], img.shape[1]]
-    cdef double xf, yf
-    cdef np.ndarray nimg = img.astype('float32'), nxt = pnp.zeros_like(img), cur
-    cdef np.ndarray vis = pnp.zeros_like(img)
-    while (vis == img).sum().sum() != shp[0] * shp[1]:
-        # print('difference:', round((shp[0] * shp[1] - (vis == img).sum().sum()) / (shp[0] * shp[1]) * 100, 2))
-        cur = img.copy()
-        ans.append('down')
-        while True:
-            print(ans)
-            sleep(1)
-            prevln = len(ans)
-            l = list(zip(*pnp.nonzero((vis != cur) & cur)))
-            if not l:
-                break
-            l = l[:1]
-            while len(l) != 0:
-                x, y = l[0]
-                l.pop(0)
-                for dx, dy in var:
-                    xn, yn = x + dx, y + dy
-                    if check(xn, yn, shp) and cur[xn, yn] and not vis[xn, yn]:
-                        vis[xn, yn] = 1
-                        l.append([xn, yn])
-                        xf, yf = compute_shift(xn, yn, x, y, d, fil)
-                        if check(int(xf), int(yf), shp) and fil[int(xf), int(yf)]:
-                            ans.append(point(xf, yf))
-                            x, y = map(int, [xf, yf])
-                            nimg[x, y] = 0.7
-                            nxt[x, y] = 1
-            cur = nxt.copy()
-            nxt = pnp.zeros_like(img)
-        ans.append('up')
-    ans = remove_intersections(ans)
-    return [ans, nimg]
+    print('filling...')
+    cords.extend(component_fill(d, cords))
+    print('removing intersections...')
+    # cords = remove_intersections(cords)
+    cords = [[a.x, a.y] for a in cords]
+    return pnp.array(cords)
 
 cdef list remove_intersections(list line):
     cdef point intcord
     cdef bint flag
     cdef int i = 0, j
-    # print('length:', len(line))
     while i < len(line) - 1:
-        if not isinstance(line[i], str) and not isinstance(line[i + 1], str):
-            j = i + 1
-            while j < len(line) - 1:
-                if not isinstance(line[j], str) and not isinstance(line[j + 1], str):
-                    intcord, flag = intersect(line[i], line[i + 1], line[j], line[j + 1])
-                    if flag:
-                        # print('intersection found on', intcord, '\nsegments:', line[i], '--', line[i + 1], '|', line[j], '--', line[j + 1])
-                        # print('indexes:', i, j)
-                        if len(line) - (j - i) > j - i and j - i < 10:
-                            # print('mode: 0')
-                            for d in range(i + 1, j + 1):
-                                line.pop(i + 1)
-                            line.insert(i + 1, intcord)
-                            j = i + 1
-                        elif len(line) - (j - i) < 10:
-                            # print('mode: 1')
-                            for d in range(i + 1):
-                                line.pop(0)
-                            for d in range(j + 1, len(line)):
-                                line.pop(j - i)
-                            i = 0
-                            j = i
-                j += 1
-        i += 1
+        j = i + 1
+        while j < len(line) - 1:
+            intcord, flag = intersect(line[i], line[i + 1], line[j], line[j + 1])
+            if flag:
+                if len(line) - (j - i) > j - i and j - i < 10:
+                    line = line[:i + 1] + [intcord] + line[j + 1:]
+                    j = i + 1
+                elif len(line) - (j - i) < 10:
+                    line = line[i + 1:j + 1]
+                    i = 0
+                    j = i
+        j += 1
+    i += 1
     return line
 
 cdef bint on_segment(point p, point q, point r): 

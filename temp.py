@@ -1,11 +1,15 @@
-import numpy as np
+from accelerated_trajectory import in_polygon
 
-a = np.array([[0, 1, 0], 
-              [0, 0, 0],
-              [1, 0, 1]])
+polygon = list(map(lambda x: list(map(float, x)), list(map(lambda x: x.split(' '), input('enter polygon: ').split('  ')))))
 
-b = np.array([[0, 1, 0], 
-              [0, 1, 0],
-              [1, 0, 1]])
+dec = {
+    True: 'YES',
+    False: 'NO'
+}
 
-print(list(zip(*np.nonzero(a == b))))
+while True:
+    s = input('enter polygon: ')
+    if s != 'same':
+        polygon = list(map(lambda x: list(map(float, x)), list(map(lambda x: x.split(' '), s.split('  ')))))
+    x, y = map(float, input('enter coordinates: ').split(' '))
+    print(dec[in_polygon([x, y], polygon)])
