@@ -8,6 +8,7 @@ from skimage.morphology import label
 from skimage.measure import regionprops
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.patches import Arrow
 from imageio.v3 import imread, imwrite
 from time import sleep
 
@@ -40,10 +41,9 @@ for i in range(1, len(clrs)):
         idx += 1
         print('image number', idx)
         regimg = reg.image
-        plt.imshow(regimg)
-        plt.show()
         cords = compute_image(regimg, 10, *reg.bbox[:2])
+        # print(cords.tolist())
         ax = plt.subplot()
         ax.imshow(img)
-        ax.add_line(Line2D(cords[:, 1], cords[:, 0], color='black', lw=1))
+        ax.add_line(Line2D(cords[:, 1], cords[:, 0], color='white', lw=1))
         plt.show()

@@ -2,7 +2,8 @@ cimport numpy as np
 import math
 import numpy as pnp
 
-cdef list var = [[i, j] for i in range(-1, 2) for j in range(-1, 2) if not (i == 0 and j == 0)]
+cdef list var = [[i, j] for i in range(-1, 2) for j in range(-1, 2) if not (i != 0 and j != 0) and not (i == 0 and j == 0)]
+var += [[i, j] for i in range(-1, 2) for j in range(-1, 2) if (i != 0 and j != 0)]
 cdef class point: 
     cdef public double x, y
     def __cinit__(self, double x, double y): 
@@ -17,6 +18,9 @@ cdef class point:
 
     def __str__(self):
         return str(self.x) + ' ' + str(self.y)
+
+    def __add__(self, point b):
+        return point(self.x + b.x, self.y + b.y)
 
     def __mod__(self, point b):
         return self.x * b.y - self.y * b.x
@@ -75,28 +79,26 @@ cdef list get_borders(np.ndarray img, double sx, double sy):
     cdef np.ndarray ans = pnp.zeros((img.shape[0], img.shape[1], 2), dtype='bool')
     for x in range(img.shape[0]):
         if img[x, 0]:
-            ans[x, 0][0] = 1
-        val = img[x, 0]
+            ans[x, 0, 0] = 1
         y = 0
         while y < img.shape[1]:
             val = img[x, y]
             while y < img.shape[1] and img[x, y] == val:
                 y += 1
             if val:
-                ans[x, min(y, img.shape[1] - 1)][0] = 1
+                ans[x, min(y - 1, img.shape[1] - 1), 0] = 1
             elif y < img.shape[1]:
-                ans[x, y][0] = 1
+                ans[x, y, 0] = 1
     for y in range(img.shape[1]):
         if img[0, y]:
             ans[0, y, 1] = 1
-        val = img[0, y]
         x = 0
         while x < img.shape[0]:
             val = img[x, y]
             while x < img.shape[0] and img[x, y] == val:
                 x += 1
             if val:
-                ans[min(x, img.shape[0] - 1), y, 1] = 1
+                ans[min(x - 1, img.shape[0] - 1), y, 1] = 1
             elif x < img.shape[0]:
                 ans[x, y, 1] = 1
     
@@ -121,16 +123,15 @@ cdef list get_borders(np.ndarray img, double sx, double sy):
                     break
     return ansp
 
-cdef point compute_shift(point a, point b, double d, list polygon):
+cdef tuple compute_shift(point a, point b, double d, list polygon):
     cdef double ln = a.dist(b)
     if a == b:
         return point(0, 0)
-    cdef double xd = (b.y - a.y) / ln * d + a.x
-    cdef double yd = (a.x - b.x) / ln * d + a.y
-    if not in_polygon(point(xd, yd), polygon):
-        xd = (a.y - b.y) / ln * d + a.x
-        yd = (b.x - a.x) / ln * d + a.y
-    return point(xd, yd)
+    cdef double xd1 = (b.y - a.y) / ln * d + a.x
+    cdef double yd1 = (a.x - b.x) / ln * d + a.y
+    cdef double xd2 = (a.y - b.y) / ln * d + a.x
+    cdef double yd2 = (b.x - a.x) / ln * d + a.y
+    return point(xd1, yd1), point(xd2, yd2)
 
 cdef double cos(point a, point b):
     return a * b / (a.len() * b.len())
@@ -159,14 +160,38 @@ cdef bint in_polygon(a, list p):
     return angle >= math.pi 
 
 cdef list component_fill(double d, list cords):
-    cdef point shift
-    cdef list ans = []
+    cdef point shift1, shift2
+    cdef list ansl = [], ansr = []
+    cdef bint f1, f2
     for i in range(len(cords)):
-        shift = compute_shift(cords[i], cords[(i + 1) % len(cords)], d, cords)
-        ans.append(shift)
-    if ans:
-        ans.extend(component_fill(d, ans))
-    return ans
+        shift1, shift2 = compute_shift(cords[i], cords[(i + 1) % len(cords)], d, cords)
+        if not ansr:
+            ansl.append(shift1)
+            ansr.append(shift2)
+        else:
+            if shift1.dist(ansl[-1]) < shift1.dist(ansr[-1]):
+                ansl.append(shift1)
+                ansr.append(shift2)
+            elif shift1.dist(ansl[-1]) > shift1.dist(ansr[-1]):
+                ansl.append(shift2)
+                ansr.append(shift1)
+            else:
+                if shift2.dist(ansl[-1]) <= shift2.dist(ansr[-1]):
+                    ansl.append(shift2)
+                    ansr.append(shift1)
+                else:
+                    ansl.append(shift1)
+                    ansr.append(shift2)
+    f1 = in_polygon(ansl[0], cords)
+    f2 = in_polygon(ansr[0], cords)
+    if f1 or f2:
+        if f1:
+            cords.extend(ansl)
+            # cords.extend(component_fill(d, ansl))
+        else:
+            cords.extend(ansr)
+            # cords.extend(component_fill(d, ansr))
+    return cords
 
 cpdef np.ndarray compute_image(np.ndarray img, int d, double sx, double sy):
     print('getting borders...')
@@ -174,8 +199,6 @@ cpdef np.ndarray compute_image(np.ndarray img, int d, double sx, double sy):
     cdef list ans = []
     print('filling...')
     cords.extend(component_fill(d, cords))
-    print('removing intersections...')
-    # cords = remove_intersections(cords)
     cords = [[a.x, a.y] for a in cords]
     return pnp.array(cords)
 
