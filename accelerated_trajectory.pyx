@@ -274,16 +274,13 @@ cdef list intersect(point p1, point q1, point p2, point q2):
         return [cord, True]
     return [cord, False]
 
-cdef double det(point a, point b):
-    return a.x * b.y - a.y * b.x
-
 cdef point get_intersection(point p1, point q1, point p2, point q2):
     cdef point xdiff = point(p1.x - q1.x, p2.x - q2.x)
     cdef point ydiff = point(p1.y - q1.y, p2.y - q2.y)
-    cdef double divv = det(xdiff, ydiff)
+    cdef double divv = xdiff * ydiff
     if divv == 0:
         return p1
-    cdef point d = point(det(p1, q1), det(p2, q2))
-    cdef double x = det(d, xdiff) / divv
-    cdef double y = det(d, ydiff) / divv
+    cdef point d = point(p1 * q1, p2 * q2)
+    cdef double x = (d * xdiff) / divv
+    cdef double y = (d * ydiff) / divv
     return point(x, y)
