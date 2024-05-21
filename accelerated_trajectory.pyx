@@ -15,7 +15,7 @@ cdef class point:
         return f'point({self.x}, {self.y})'
 
     def __eq__(self, other):
-        return math.sqrt((self.x - other.x) ** 2 + (self.y - other.y) ** 2) < 1e-6
+        return dist(self, other) < 1e-6
 
     def __str__(self):
         return str(self.x) + ' ' + str(self.y)
@@ -170,12 +170,15 @@ cdef tuple get_line(point p1, point p2):
     c = -(a * p1.x + b * p1.y)
     return a, b, c
 
+cdef double distpl(point p, double a, double b, double c):
+    return abs(a * p.x + b * p.y + c) / ((a ** 2 + b ** 2) ** 0.5)
+
 cdef tuple intersect_ray_line(double a, double b, double c, point p0, point d):
     if a * d.x + b * d.y == 0:
-        return False, point(0, 0)
+        return False, point(-1, -1)
     cdef double t = -(a * p0.x + b * p0.y + c) / (a * d.x + b * d.y)
     if t < 0:
-        return False, point(0, 0)
+        return False, point(-1, -1)
     else:
         return True, d * t + p0
 
@@ -202,7 +205,9 @@ cdef tuple shift_segment(int a, int b, int c, int d, list pol, double s):
         f2, pint2 = intersect_ray_line(pa, pb, pc, pol[c], b2)
     return pint1, pint2
 
-cdef list component_fill(double s, list cords, list holes):
+cdef list component_fill(double s, list cords, list holes, int level):
+    if level == 2:
+        return cords
     cdef list ans = []
     cdef point p1, p2
     cdef bint f 
@@ -225,16 +230,16 @@ cdef list component_fill(double s, list cords, list holes):
             if f:
                 ans.append(p2)
     if ans:
-        cords.extend(component_fill(s, ans, holes))
+        cords.extend(component_fill(s, ans, holes, level + 1))
+        # ans = remove_intersections(ans)
     return cords
 
 cpdef np.ndarray compute_image(np.ndarray img, int d, double sx, double sy):
     cdef list cords, holes
     print('getting borders...')
     cords, holes = get_borders(img, sx, sy)
-    print(holes)
     print('filling...')
-    cords = component_fill(d, cords, holes)
+    cords = component_fill(d, cords, holes, 0)
     cords = [[a.x, a.y] for a in cords]
     return pnp.array(cords)
 
