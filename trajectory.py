@@ -1,5 +1,5 @@
 import os
-os.system('python compile_cython.py build_ext --inplace')
+os.system('CC=nvc python compile_cython.py build_ext --inplace')
 
 from accelerated_trajectory import fill, compute_image
 import numpy as np
@@ -10,18 +10,9 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from matplotlib.patches import Arrow
 from imageio.v3 import imread, imwrite
-from time import sleep
+from time import sleep  
 
-def get_max_divs(x):
-    i = 1
-    mxdiv = 1
-    while i * i <= x:
-        if x % i == 0:
-            mxdiv = i
-        i += 1
-    return mxdiv, x // mxdiv
-
-img = imread('colors_circle.png')
+img = imread('colors_triangle.png')
 f = (img == 0).sum(axis=2) == 3
 f = ~f
 lb = label(~f)
@@ -45,5 +36,5 @@ for i in range(1, len(clrs)):
         # print(cords.tolist())
         ax = plt.subplot()
         ax.imshow(img)
-        ax.add_line(Line2D(cords[:, 1], cords[:, 0], color='white', lw=1))
+        ax.add_line(Line2D(cords[:, 1], cords[:, 0], color='black', lw=1))
         plt.show()
