@@ -182,14 +182,25 @@ cdef tuple intersect_ray_line(double a, double b, double c, point p0, point d):
     else:
         return True, d * t + p0
 
+cdef bint in_angle(point v1, point v2, point p):
+    cdef double s = (-v1.x * (v2.y - v1.y) + v1.y * (v2.x - v1.x)) / 2
+    if s < 0:
+        v1, v2 = v2, v1
+    cdef double s1 = (-v1.x * (p.y - v1.y) + v1.y * (p.x - v1.x)) / 2
+    cdef double s2 = (-v2.x * (p.y - v2.y) + v2.y * (p.x - v2.x)) / 2
+    return s1 >= 0 and s2 <= 0
+
+cdef point bisec(point a, point b):
+    cdef double angle = get_angle(a, b) / 2
+    cdef point p = rot(a, angle)
+    if not in_angle(a, b, p):
+        p = rot(a, -angle)
+    return p * (1 / p.len())
+
 cdef tuple shift_segment(int a, int b, int c, int d, list pol, double s):
-    cdef double angle1 = get_angle(vec(pol[b], pol[a]), vec(pol[b], pol[c])) / 2
-    cdef double angle2 = get_angle(vec(pol[c], pol[b]), vec(pol[c], pol[d])) / 2
-    cdef point b1 = rot(vec(pol[b], pol[a]), angle1)
-    cdef point b2 = rot(vec(pol[c], pol[b]), angle2)
+    cdef point b1 = bisec(vec(pol[b], pol[a]), vec(pol[b], pol[c]))
+    cdef point b2 = bisec(vec(pol[c], pol[b]), vec(pol[c], pol[d]))
     cdef double pa, pb, pc
-    b1 = b1 * (1 / b1.len())
-    b2 = b2 * (1 / b2.len())
     pa, pb, pc = get_line(pol[b], pol[c])
     cdef point mv
     mv = point(pa, pb)
@@ -206,8 +217,6 @@ cdef tuple shift_segment(int a, int b, int c, int d, list pol, double s):
     return pint1, pint2
 
 cdef list component_fill(double s, list cords, list holes, int level):
-    if level == 2:
-        return cords
     cdef list ans = []
     cdef point p1, p2
     cdef bint f 

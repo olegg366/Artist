@@ -4,13 +4,38 @@ import cv2
 import numpy as np
 import tensorflow as tf
 import time
+from skimage.morphology import label
+from skimage.measure import regionprops
 from multiprocessing import Process
 from utilites import draw_landmarks_on_image, arduino_map
 from interface import App
 from time import time as tt
 from PIL import Image
-# from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
-# import torch
+from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
+import torch
+from get_colors import get_colors
+from accelerated_trajectory import fill, compute_image
+import serial
+
+SERVO_DOWN = ''
+SERVO_UP = ''
+
+port = "COM1"  
+baudrate = 112500 
+
+def get_gcode(t: list):
+    ans = 'G90'
+    i = 1
+    while i < len(t):
+        ans += SERVO_DOWN
+        i += 1
+        while t[i] != 'up':
+            ans += f'G1 X{t[i, 0]} Y{t[i, 1]}\n'
+            i += 1
+        ans += SERVO_UP
+        if i < len(t) - 1:
+            ans += f'G1 X{t[i + 1, 0]} Y{t[i + 1, 1]}'
+    return ans
 
 def draw(tp, time, flag, x, y, st):
     global app
@@ -55,16 +80,48 @@ def get_landmarks(detection_result, shp):
 
     return np.array(res)
 
-def gen_img(img):
-    # img = pipe("mountains and lake, connect to contours, few details", 
-    #        img, 
-    #        guess_mode = True, 
-    #        guidance_scale = 3,
-    #        negative_prompt = "many lines, many colours, more than ten colours, dull", 
-    #        num_inference_steps=5, 
-    #        height=512, width=512).images[0]
-    img = Image.open('img.png')
+def gen_img(img: Image):
+    img = pipe("mountains and lake, connect to contours, few details", 
+           img, 
+           negative_prompt = "many colours, many details", 
+           num_inference_steps=10, 
+           height=512, width=512).images[0]
     return img
+
+def send_gcode(gcode: str):
+    ser = serial.Serial(port, baudrate=baudrate)
+    ser.write(gcode.encode())
+    ser.close()
+
+def draw_img(img: Image):
+    img = np.array(img)
+    img = get_colors(img)
+    f = (img == 0).sum(axis=2) == 3
+    f = ~f
+    lb = label(~f)
+    rgs = regionprops(lb)
+    for rg in rgs:
+        if rg.area < 30:
+            f, img = fill(*rg.coords[0], f, img)
+
+    clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
+    idx = 0
+    all = []
+    for i in range(1, len(clrs)):
+        clr = clrs[i]
+        f = (img == clr).sum(axis=2) == 3
+        lb = label(f)
+        rgs = regionprops(lb)
+        for reg in rgs:
+            idx += 1
+            regimg = reg.image
+            cords = compute_image(regimg, 10, *reg.bbox[:2])
+            all.append('down')
+            all.extend(cords)
+            all.append('up')
+    
+    gcode = get_gcode(all)
+    send_gcode(gcode)
 
 def run_app():
     global app
@@ -98,12 +155,16 @@ if __name__ == '__main__':
         running_mode=VisionRunningMode.IMAGE)
     print('Succesfully set up hand landmarker.')
 
-    #настройка stable diffusion
-    # print('Setting up stable diffusion...')
-    # controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", torch_dtype=torch.float32)
-    # pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", controlnet=controlnet, safety_checker=None, torch_dtype=torch.float32)
-    # pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    # print('Succesfully set up stable diffusion.')
+    # настройка stable diffusion
+    print('Setting up stable diffusion...')
+    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
+                                                 torch_dtype=torch.float32).to('cuda')
+    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
+                                                             controlnet=controlnet, 
+                                                             safety_checker=None, 
+                                                             torch_dtype=torch.float32).to('cuda')
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+    print('Succesfully set up stable diffusion.')
 
     #перевод курсора в начальное положение
     pg.moveTo(2, 259)
@@ -154,5 +215,5 @@ if __name__ == '__main__':
                 print(e)
                 break
 
-    # upd.terminate()
+    upd.terminate()
     vid.release()

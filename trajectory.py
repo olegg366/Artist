@@ -12,7 +12,10 @@ from matplotlib.patches import Arrow
 from imageio.v3 import imread, imwrite
 from time import sleep  
 
-img = imread('colors_triangle.png')
+SERVO_DOWN = ''
+SERVO_UP = ''
+
+img = imread('colors.png')
 f = (img == 0).sum(axis=2) == 3
 f = ~f
 lb = label(~f)
@@ -23,6 +26,7 @@ for rg in rgs:
 
 clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
 idx = 0
+all = []
 for i in range(1, len(clrs)):
     clr = clrs[i]
     f = (img == clr).sum(axis=2) == 3
@@ -33,8 +37,11 @@ for i in range(1, len(clrs)):
         print('image number', idx)
         regimg = reg.image
         cords = compute_image(regimg, 10, *reg.bbox[:2])
-        # print(cords.tolist())
+        all.append('down')
+        all.extend(cords)
+        all.append('up')
         ax = plt.subplot()
         ax.imshow(img)
-        ax.add_line(Line2D(cords[:, 1], cords[:, 0], color='black', lw=1))
+        ax.add_line(Line2D(cords[:, 1], cords[:, 0], lw=1, color='black'))
         plt.show()
+

@@ -5,7 +5,7 @@ from multiprocessing import Process
 from time import sleep
 
 class App():
-    def __init__(self, get_img_func):
+    def __init__(self, get_img_func, draw_img_func):
 
         self.root = tk.Tk()
 
@@ -14,6 +14,7 @@ class App():
         self.line_options = {'fill': 'black'}
 
         self.get_img = get_img_func
+        self.draw_img = draw_img_func
 
         #конфигурируем панель управления
         self.fr_ctrl = tk.Frame(bg='#CFCFCF', width=100, height=100)
@@ -173,6 +174,7 @@ class App():
         self.display_img = ImageTk.PhotoImage(img)
         panel = tk.Label(self.canvas, image=self.display_img)
         panel.pack(side="bottom", fill="both", expand="yes")
+        self.draw_img(img)
 
 if __name__ == '__main__':
     app = App(lambda x: Image.open('img.png'))
