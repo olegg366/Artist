@@ -16,6 +16,8 @@ import torch
 from get_colors import get_colors
 from accelerated_trajectory import fill, compute_image
 import serial
+from numba import cuda
+device = cuda.get_current_device()
 
 SERVO_DOWN = ''
 SERVO_UP = ''
@@ -37,56 +39,39 @@ def get_gcode(t: list):
             ans += f'G1 X{t[i + 1, 0]} Y{t[i + 1, 1]}'
     return ans
 
-def draw(tp, time, flag, x, y, st):
+def draw(tp, time, flag, x, y, endflag):
     global app
     if tp == 'Pointing_Up' and flag:
         x = 640 - x
-        x = arduino_map(x, 0, 640, 51, 1016)
-        y = arduino_map(y, 0, 480, 237, 961)
+        x = arduino_map(x, 0, 640, 75, 1920)
+        y = arduino_map(y, 0, 480, 65, 1080)
         pg.dragTo(x, y)
-        x -= app.canvas.winfo_x()
-        y -= app.canvas.winfo_y() + 25
-        x, y = map(int, (x, y))
-        if st == 0:
-            app.set_start(x, y)
-            st = 1
-        elif st == 1:
-            app.draw_line(x, y)
-        # else: pg.moveTo(x, y)
         time['paint'] = tt()
     elif tp == 'Open_Palm' and tt() - time['clean'] >= 2:
-        pg.moveTo(47, 95)
+        pg.moveTo(155, 140)
         pg.click()
 
-        pg.moveTo(2, 259)
+        pg.moveTo(75, 216)
         time['clean'] = tt()
     elif tp == 'Thumb_Up': 
         if not flag:
             flag = True
             time['start'] = tt()
         elif tt() - time['start'] > 10:
-            pg.moveTo(716, 141)
+            pg.moveTo(638, 138)
             pg.click()
-    return flag, time, st
+            endflag = True
+    return flag, time, endflag
 
 def get_landmarks(detection_result, shp):
     hand_landmarks_list = detection_result.hand_landmarks
     res = []
 
-    # Loop through the detected hands to visualize.
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
         res.append([[l.x * shp[1], l.y * shp[0]] for l in hand_landmarks])
 
     return np.array(res)
-
-def gen_img(img: Image):
-    img = pipe("mountains and lake, connect to contours, few details", 
-           img, 
-           negative_prompt = "many colours, many details", 
-           num_inference_steps=10, 
-           height=512, width=512).images[0]
-    return img
 
 def send_gcode(gcode: str):
     ser = serial.Serial(port, baudrate=baudrate)
@@ -129,7 +114,7 @@ def run_app():
         app.update()
 
 print('Setting up widget...')
-app = App(lambda img: gen_img(img))
+app = App()
 print('Successfully set up widget.')
 
 if __name__ == '__main__':
@@ -145,7 +130,7 @@ if __name__ == '__main__':
 
     #разметка руки
     print('Setting up hand landmarker...')
-    model_path = 'mlmodels\hand_landmarker.task'
+    model_path = 'mlmodels/hand_landmarker.task'
     BaseOptions = mp.tasks.BaseOptions
     HandLandmarker = mp.tasks.vision.HandLandmarker
     HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
@@ -156,16 +141,6 @@ if __name__ == '__main__':
     print('Succesfully set up hand landmarker.')
 
     # настройка stable diffusion
-    print('Setting up stable diffusion...')
-    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                                 torch_dtype=torch.float32).to('cuda')
-    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
-                                                             controlnet=controlnet, 
-                                                             safety_checker=None, 
-                                                             torch_dtype=torch.float32).to('cuda')
-    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-    print('Succesfully set up stable diffusion.')
-
     #перевод курсора в начальное положение
     pg.moveTo(2, 259)
 
@@ -190,30 +165,61 @@ if __name__ == '__main__':
     upd = Process(target=run_app)
     upd.start()
 
-    st = 0
+    end = False
 
     with HandLandmarker.create_from_options(options) as landmarker:
         while True:
-            try:
-                res, img = vid.read()
+            res, img = vid.read()
 
-                if not res: print(0)
-                mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-                detection = landmarker.detect(mp_image)
-                annotated_image, x, y = draw_landmarks_on_image(img, detection)
-                cv2.imshow('img', annotated_image)
-                if detection.hand_landmarks:
-                    pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
-                    gt = classes[np.argmax(pred)]
-                    # print(gt)
-                    flag, t, st = draw(gt, t, flag, x, y, st)
-                    print(app.line_points)
+            if not res: 
+                print(0)
+                continue
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            detection = landmarker.detect(mp_image)
+            annotated_image, x, y = draw_landmarks_on_image(img, detection)
+            cv2.imshow('img', annotated_image)
+            if detection.hand_landmarks:
+                pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
+                gt = classes[np.argmax(pred)]
+                # print(gt)
+                flag, t, end = draw(gt, t, flag, x, y, end)
+                print(app.image.size)
+                if end:
+                    img = app.image
+                    del model
+                    upd.terminate()
+                    device.reset()
+                    print('Setting up stable diffusion...')
+                    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
+                                                                torch_dtype=torch.float32).to('cuda')
+                    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
+                                                                            controlnet=controlnet, 
+                                                                            safety_checker=None, 
+                                                                            torch_dtype=torch.float32).to('cuda')
+                    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+                    pipe.enable_xformers_memory_efficient_attention()
+                    pipe.enable_model_cpu_offload()
+                    print('Succesfully set up stable diffusion.')
+                    f = False
+                    while not f:
+                        try:
+                            img = pipe("mountains and lake, sign design", 
+                                img, 
+                                negative_prompt = "many colours, many details", 
+                                num_inference_steps=10, 
+                                height=512, width=512).images[0]
+                        except RuntimeError as e:
+                            print(e)
+                            continue
+                        f = True
+                    del pipe
+                    device.reset()
+                    app.display(img)
+                    upd.start()
+                    # draw_img(img)
 
-                # app.update()
-                cv2.waitKey(1)
-            except Exception as e:
-                print(e)
-                break
+            # app.update()
+            cv2.waitKey(1)
 
     upd.terminate()
     vid.release()

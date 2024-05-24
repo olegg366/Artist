@@ -5,16 +5,13 @@ from multiprocessing import Process
 from time import sleep
 
 class App():
-    def __init__(self, get_img_func, draw_img_func):
+    def __init__(self):
 
         self.root = tk.Tk()
 
         self.line_id = None
         self.line_points = []
         self.line_options = {'fill': 'black'}
-
-        self.get_img = get_img_func
-        self.draw_img = draw_img_func
 
         #конфигурируем панель управления
         self.fr_ctrl = tk.Frame(bg='#CFCFCF', width=100, height=100)
@@ -27,9 +24,9 @@ class App():
         self.canvas = tk.Canvas(self.fr_draw, width=512, height=512)
         self.canvas.pack(fill='both', expand=True)
 
-        # self.canvas.bind('<Button-1>', self.set_start)
-        # self.canvas.bind('<B1-Motion>', self.draw_line)
-        # self.canvas.bind('<ButtonRelease-1>', self.end_line)
+        self.canvas.bind('<Button-1>', self.set_start)
+        self.canvas.bind('<B1-Motion>', self.draw_line)
+        self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
         self.btfont = 'Times 20'
         self.bth = 5
@@ -84,7 +81,7 @@ class App():
         #кнопка генерации
         self.bt_gen = tk.Button(self.fr_ctrl, 
                                 text='Готово!', 
-                                command=self.gen, 
+                                command=lambda: 1, 
                                 height=self.bth, 
                                 width=self.btw, 
                                 font=self.btfont)
@@ -124,10 +121,18 @@ class App():
         self.fr_wd_set.place(x=self.bt_del.winfo_width() + self.bt_set_clr.winfo_width(), 
                              y=self.fr_ctrl.winfo_height())
 
-    def set_start(self, x, y):
+    def set_start(self, cords):
+        if isinstance(cords, tk.Event):
+            x, y = cords.x, cords.y
+        else:
+            x, y = cords
         self.line_points.append((x, y))
 
-    def draw_line(self, x, y):
+    def draw_line(self, cords):
+        if isinstance(cords, tk.Event):
+            x, y = cords.x, cords.y
+        else:
+            x, y = cords
         self.line_points.append((x, y))
         if self.line_id is not None:
             self.canvas.delete(self.line_id)
@@ -146,17 +151,16 @@ class App():
         self.image = Image.new("RGB", (self.canvas.winfo_width(), self.canvas.winfo_height()), (255, 255, 255))
         self.draw = ImageDraw.Draw(self.image)
         self.actions.clear()
-        print(self.canvas.find_all())
 
     def set_color(self, x):
         self.line_options['fill'] = self.clrs[x]
         self.fr_clr_set.place_forget()
-        self.end_line()
+        # self.end_line()
 
     def change_width(self, x):
         self.line_options['width'] = x
         self.fr_wd_set.place_forget()
-        self.end_line()
+        # self.end_line()
 
     def update(self):
         self.root.update()
@@ -169,13 +173,13 @@ class App():
             for action in self.actions:
                 action()
     
-    def gen(self):
-        img = self.get_img(self.image)
+    def display(self, img):
+        print('displaying')
         self.display_img = ImageTk.PhotoImage(img)
         panel = tk.Label(self.canvas, image=self.display_img)
         panel.pack(side="bottom", fill="both", expand="yes")
-        self.draw_img(img)
+        print('displayed')
 
 if __name__ == '__main__':
-    app = App(lambda x: Image.open('img.png'))
+    app = App()
     app.root.mainloop()
