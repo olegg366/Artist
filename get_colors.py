@@ -3,7 +3,7 @@ import numpy as np
 from numpy.ctypeslib import ndpointer 
 
 import matplotlib.pyplot as plt
-import numba as nb
+from accelerated_trajectory import mark
 
 from tqdm import trange, tqdm
 from imageio import imread, imsave
@@ -39,23 +39,13 @@ def get_colors(img):
     else:
         msk = lb == 0
 
-    newmsk = np.zeros((512, 512, 3))
+    newmsk = np.zeros((img.shape[0], img.shape[1], 3))
     newmsk[~msk, :] = 1
     newmsk = newmsk.astype('bool')
 
     img = rgb2hsv(img)
 
-    clrs = np.array([[h/50, 0.7, 0.7] for h in range(50)])
-    clrs = np.vstack((clrs, [[0., 0., 0.], [0., 0., 1.]]))
-
-    @nb.njit
-    def mark(img, itsa):
-        nimg = np.zeros_like(img)
-        for i in nb.prange(img.shape[0]):
-            px = img[i]
-            if (px == np.array([0, 0, 0], dtype='float64')).sum() != 3:
-                nimg[i] = itsa[np.argmin(np.abs(px - itsa).sum(axis=1))]
-        return nimg
+    clrs = np.array([[0., 0., 0.], [0., 0., 1.]])
 
     clrmsk = mark(img[~msk], clrs)
     nimg = np.zeros_like(img)

@@ -1,3 +1,6 @@
+import os
+os.system('CC=nvc python compile_cython.py build_ext --inplace')
+
 import mediapipe as mp
 import pyautogui as pg
 import cv2
@@ -17,51 +20,76 @@ from get_colors import get_colors
 from accelerated_trajectory import fill, compute_image
 import serial
 from numba import cuda
+from time import sleep
+import pickle
 device = cuda.get_current_device()
 
-SERVO_DOWN = ''
-SERVO_UP = ''
+DOWN = 2153
+UP = 1900
 
-port = "COM1"  
-baudrate = 112500 
+port = "/dev/ttyACM0"  
+baudrate = 115200 
+
+speed = 1500
+
+def servo(ser, n):
+    for i in range(180):
+        ser.write(b'M42 P12 S255 T1\n')
+        sleep(n / 1000000)
+        ser.write(b'M42 P12 S0 T1\n')
 
 def get_gcode(t: list):
-    ans = 'G90'
     i = 1
+    k = 3
+    ans = []
     while i < len(t):
-        ans += SERVO_DOWN
+        ans += ['down']
         i += 1
-        while t[i] != 'up':
-            ans += f'G1 X{t[i, 0]} Y{t[i, 1]}\n'
+        while i < len(t) and t[i] != 'up':
+            try:
+                ans += [f'G1 X{t[i][0] / k} Y-{t[i][1] / k} F{speed}\n']
+            except TypeError:
+                pass
             i += 1
-        ans += SERVO_UP
+        ans += ['up']
         if i < len(t) - 1:
-            ans += f'G1 X{t[i + 1, 0]} Y{t[i + 1, 1]}'
+            try:
+                ans += [f'G1 X{t[i + 1][0] / k} Y-{t[i + 1][1] / k} F{speed}\n']
+            except TypeError:
+                pass
     return ans
 
-def draw(tp, time, flag, x, y, endflag):
+def draw(tp, time, cnt, flag, x, y, endflag):
     global app
     if tp == 'Pointing_Up' and flag:
         x = 640 - x
         x = arduino_map(x, 0, 640, 75, 1920)
         y = arduino_map(y, 0, 480, 65, 1080)
         pg.dragTo(x, y)
-        time['paint'] = tt()
-    elif tp == 'Open_Palm' and tt() - time['clean'] >= 2:
-        pg.moveTo(155, 140)
-        pg.click()
-
-        pg.moveTo(75, 216)
-        time['clean'] = tt()
-    elif tp == 'Thumb_Up': 
-        if not flag:
-            flag = True
-            time['start'] = tt()
-        elif tt() - time['start'] > 10:
-            pg.moveTo(638, 138)
+    elif tp == 'Open_Palm' and tt() - time['clean'] > 5:
+        if cnt['clean'] > 10:
+            pg.moveTo(155, 140)
             pg.click()
-            endflag = True
-    return flag, time, endflag
+
+            pg.moveTo(75, 216)
+            time['clean'] = tt()
+            cnt['clean'] = 0
+        else:
+            cnt['clean'] += 1
+    elif tp == 'Thumb_Up' and tt() - time['start'] > 5: 
+        if cnt['end'] > 10:
+            if not flag:
+                flag = True
+                cnt['end'] = 0
+            else:
+                pg.moveTo(638, 138)
+                pg.click()
+                endflag = True
+                time['start'] = tt()
+                cnt['end'] = 0
+        else:
+            cnt['end'] += 1
+    return flag, time, cnt, endflag
 
 def get_landmarks(detection_result, shp):
     hand_landmarks_list = detection_result.hand_landmarks
@@ -73,14 +101,34 @@ def get_landmarks(detection_result, shp):
 
     return np.array(res)
 
-def send_gcode(gcode: str):
+def dist(ax, ay, bx, by):
+    return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+
+def send_gcode(gcodes: list):
     ser = serial.Serial(port, baudrate=baudrate)
-    ser.write(gcode.encode())
+    sleep(2)
+    ser.write(b'G90\n')
+    prevx, prevy = 0, 0
+    for gcode in gcodes:
+        print(gcode)
+        if gcode == 'up':
+            servo(ser, UP)
+            sleep(0.1)
+        elif gcode == 'down':
+            servo(ser, DOWN)
+            sleep(0.1)
+        else:
+            ser.write(gcode.encode())
+            gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
+            sleep(dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60) + 0.1)
+            prevx, prevy = gcode[0], gcode[1]
     ser.close()
 
 def draw_img(img: Image):
     img = np.array(img)
+    print('getting colors..')
     img = get_colors(img)
+    print('got colors')
     f = (img == 0).sum(axis=2) == 3
     f = ~f
     lb = label(~f)
@@ -89,6 +137,7 @@ def draw_img(img: Image):
         if rg.area < 30:
             f, img = fill(*rg.coords[0], f, img)
 
+    print('getting trajectory...')
     clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
     idx = 0
     all = []
@@ -104,9 +153,16 @@ def draw_img(img: Image):
             all.append('down')
             all.extend(cords)
             all.append('up')
+    print('got trajectory')
+    print(all)
     
+    with open('last_trajectory.lst', 'wb') as f:
+        pickle.dump(all, f)
+    
+    print('sending gcode...')
     gcode = get_gcode(all)
     send_gcode(gcode)
+    print('sent gcode')
 
 def run_app():
     global app
@@ -148,7 +204,7 @@ if __name__ == '__main__':
     t = {
         'paint' : time.time(),
         'clean' : time.time(),
-        'start' : -1
+        'start' : time.time()
     }
 
     #классы жестов
@@ -157,13 +213,19 @@ if __name__ == '__main__':
         1 : 'Pointing_Up',
         2 : 'Thumb_Up'
     }
+    
+    # счетчик жестов подряд
+    cnt = {
+        'clean': 0,
+        'end': 0
+    }
 
     #индикатор того, рисуем мы или нет 
     flag = False
 
     #окно взаимодействия
-    upd = Process(target=run_app)
-    upd.start()
+    # upd = Process(target=run_app)
+    # upd.start()
 
     end = False
 
@@ -181,13 +243,10 @@ if __name__ == '__main__':
             if detection.hand_landmarks:
                 pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
                 gt = classes[np.argmax(pred)]
-                # print(gt)
-                flag, t, end = draw(gt, t, flag, x, y, end)
-                print(app.image.size)
+                flag, t, cnt, end = draw(gt, t, cnt, flag, x, y, end)
                 if end:
                     img = app.image
                     del model
-                    upd.terminate()
                     device.reset()
                     print('Setting up stable diffusion...')
                     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
@@ -200,26 +259,21 @@ if __name__ == '__main__':
                     pipe.enable_xformers_memory_efficient_attention()
                     pipe.enable_model_cpu_offload()
                     print('Succesfully set up stable diffusion.')
-                    f = False
-                    while not f:
-                        try:
-                            img = pipe("mountains and lake, sign design", 
-                                img, 
-                                negative_prompt = "many colours, many details", 
-                                num_inference_steps=10, 
-                                height=512, width=512).images[0]
-                        except RuntimeError as e:
-                            print(e)
-                            continue
-                        f = True
+                    img = pipe("mountains and lake, sign design, black color", 
+                        img, 
+                        negative_prompt="many colours, many details", 
+                        num_inference_steps=10, 
+                        height=400, width=400).images[0]
                     del pipe
                     device.reset()
+                    img.save('now.png')
                     app.display(img)
-                    upd.start()
-                    # draw_img(img)
+                    app.update()
+                    draw_img(img)
+                    sleep(10000)
 
-            # app.update()
+            app.update()
             cv2.waitKey(1)
 
-    upd.terminate()
+    # upd.terminate()
     vid.release()

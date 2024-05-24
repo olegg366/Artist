@@ -173,13 +173,27 @@ class App():
             for action in self.actions:
                 action()
     
-    def display(self, img):
+    def display(self, img: Image):
         print('displaying')
+        img = img.resize((img.size[0] * 2, img.size[1] * 2))
         self.display_img = ImageTk.PhotoImage(img)
         panel = tk.Label(self.canvas, image=self.display_img)
         panel.pack(side="bottom", fill="both", expand="yes")
         print('displayed')
 
 if __name__ == '__main__':
+    def update_app():
+        global app
+        while True:
+            app.update()
     app = App()
-    app.root.mainloop()
+    upd = Process(target=update_app)
+    upd.start()
+    
+    sleep(1)
+    upd.terminate()
+    sleep(0.1)
+    upd.close()
+    del upd
+    img = Image.open('img.png')
+    app.display(img)
