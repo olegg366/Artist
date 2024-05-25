@@ -58,12 +58,12 @@ cdef bint check(int x, int y, list shape):
     return False
 
 def mark(np.ndarray img, np.ndarray itsa):
-        nimg = pnp.zeros_like(img)
-        for i in range(img.shape[0]):
-            px = img[i]
-            if (px == pnp.array([0, 0, 0], dtype='float64')).sum() != 3:
-                nimg[i] = itsa[pnp.argmin(pnp.abs(px - itsa).sum(axis=1))]
-        return nimg
+    nimg = pnp.zeros_like(img)
+    for i in range(img.shape[0]):
+        px = img[i]
+        if (px == pnp.array([0, 0, 0], dtype='float64')).sum() != 3:
+            nimg[i] = itsa[pnp.argmin(pnp.abs(px - itsa).sum(axis=1))]
+    return nimg
 
 cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img):
     cdef np.ndarray vis1 = vis.copy()
@@ -183,7 +183,7 @@ cdef double distpl(point p, double a, double b, double c):
 
 cdef tuple intersect_ray_line(double a, double b, double c, point p0, point d):
     if a * d.x + b * d.y == 0:
-        return False, point(-1, -1)
+        return True, p0
     cdef double t = -(a * p0.x + b * p0.y + c) / (a * d.x + b * d.y)
     if t < 0:
         return False, point(-1, -1)
@@ -256,46 +256,71 @@ cpdef list compute_image(np.ndarray img, int d, double sx, double sy):
     cords, holes = get_borders(img, sx, sy)
     cords = component_fill(d, cords, holes, 0)
     cords = [[a.x, a.y] for a in cords]
+    cords = approximate(cords)
+    cords = remove_dublicates(cords)
     return cords
 
-cdef bint check_poly(list cords, double a, double b):
+cdef list remove_dublicates(list x):
+    i = 0
+    while i < len(x):
+        while i < len(x) and x[min(i + 1, len(x) - 1)] == x[i]:
+            x.pop(i)
+        i += 1
+    return x 
+
+cdef bint check_poly(np.ndarray cords, double a, double b):
     cdef double s = 0
     for x, y in cords:
         s += abs(a * x + b - y)
     s /= len(cords)
-    return s > 5
+    return s < 3
 
 cdef list approximate(list cords):
     cdef int i = 0
-    cdef list ncords = []
+    cdef np.ndarray ncords = pnp.array([])
     cdef np.ndarray now = pnp.array([])
-    cdef double a, b, an, bn
-    while i < cords.shape[0]:
-        now.append(cords[i])
+    cdef double a = 1, b = 0, an, bn, cn
+    while i < len(cords):
+        if not now.size:
+            now = pnp.array([cords[i]])
+        else:
+            now = pnp.vstack((now, [cords[i]]))
         if len(now) < 2:
+            i += 1
             continue
         try:
-            an, bn = pnp.polynomial.polynomial.Polynomial.fit(now[:, 0], now[:, 1], 1).coef
+            res = pnp.polynomial.Polynomial.fit(now[:, 0], now[:, 1], 1).convert().coef
+            if len(res) == 1:
+                bn = res[0]
+                an = 0
+            else: bn, an = res
         except pnp.linalg.LinAlgError:
-            an, bn = get_line(point(*now[0].tolist(), point(*now[1].tolist())))
-        if not check_poly(now, an, bn):
-            if not ncords:
+            if not ncords.size:
                 ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]])
             else:
                 ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]]))
-            now = pnp.array([])
-        i += 1
-    if now:
-        if len(now) == 1:
-            if not ncords:
-                ncords = now
+            i += 1
+            continue
+        if not check_poly(now, an, bn):
+            if not ncords.size:
+                ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]])
             else:
-                ncords = pnp.
-        if not ncords:
-            ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-2, 0] * a + b]])
+                ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]]))
+            now = pnp.array([cords[i - 1], cords[i]])
+        a = an
+        b = bn
+        i += 1
+    if now.size:
+        # if len(now) == 1:
+        #     if not ncords:
+        #         ncords = now
+        #     else:
+        #         ncords = pnp.vstack(ncords, [now])
+        if not ncords.size:
+            ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-1, 0] * a + b]])
         else:
-            ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-2, 0] * a + b]]))
-
+            ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-1, 0] * a + b]]))
+    return ncords.tolist()
 cdef list remove_intersections(list line):
     cdef point intcord
     cdef bint flag 

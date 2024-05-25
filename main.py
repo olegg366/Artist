@@ -24,13 +24,13 @@ from time import sleep
 import pickle
 device = cuda.get_current_device()
 
-DOWN = 2153
+DOWN = 2050
 UP = 1900
 
 port = "/dev/ttyACM0"  
 baudrate = 115200 
 
-speed = 1500
+speed = 5000
 
 def servo(ser, n):
     for i in range(180):
@@ -65,9 +65,11 @@ def draw(tp, time, cnt, flag, x, y, endflag):
         x = 640 - x
         x = arduino_map(x, 0, 640, 75, 1920)
         y = arduino_map(y, 0, 480, 65, 1080)
+        cnt['clean'] = 0
+        cnt['end'] = 0
         pg.dragTo(x, y)
     elif tp == 'Open_Palm' and tt() - time['clean'] > 5:
-        if cnt['clean'] > 10:
+        if cnt['clean'] > 20:
             pg.moveTo(155, 140)
             pg.click()
 
@@ -76,19 +78,25 @@ def draw(tp, time, cnt, flag, x, y, endflag):
             cnt['clean'] = 0
         else:
             cnt['clean'] += 1
-    elif tp == 'Thumb_Up' and tt() - time['start'] > 5: 
-        if cnt['end'] > 10:
-            if not flag:
-                flag = True
-                cnt['end'] = 0
+    else:
+        cnt['clean'] = 0
+        if tp == 'Thumb_Up' and tt() - time['start'] > 10: 
+            if cnt['end'] > 10:
+                if not flag:
+                    flag = True
+                    cnt['end'] = 0
+                    time['start'] = tt()
+                else:
+                    pg.moveTo(638, 138)
+                    pg.click()
+                    endflag = True
+                    time['start'] = tt()
+                    cnt['end'] = 0
             else:
-                pg.moveTo(638, 138)
-                pg.click()
-                endflag = True
-                time['start'] = tt()
-                cnt['end'] = 0
+                cnt['end'] += 1
         else:
-            cnt['end'] += 1
+            cnt['end'] = 0
+        
     return flag, time, cnt, endflag
 
 def get_landmarks(detection_result, shp):
@@ -113,19 +121,24 @@ def send_gcode(gcodes: list):
         print(gcode)
         if gcode == 'up':
             servo(ser, UP)
-            sleep(0.1)
+            sleep(0.2)
         elif gcode == 'down':
             servo(ser, DOWN)
-            sleep(0.1)
+            sleep(0.2)
         else:
+            if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
+                continue
             ser.write(gcode.encode())
             gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
-            sleep(dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60) + 0.1)
+            d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
+            sleep(d + 0.2)
             prevx, prevy = gcode[0], gcode[1]
     ser.close()
 
 def draw_img(img: Image):
     img = np.array(img)
+    cv2.imshow('img', img)
+    cv2.waitKey(1000)
     print('getting colors..')
     img = get_colors(img)
     print('got colors')
@@ -137,6 +150,7 @@ def draw_img(img: Image):
         if rg.area < 30:
             f, img = fill(*rg.coords[0], f, img)
 
+    cv2.imshow('img', img)
     print('getting trajectory...')
     clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
     idx = 0
@@ -149,7 +163,7 @@ def draw_img(img: Image):
         for reg in rgs:
             idx += 1
             regimg = reg.image
-            cords = compute_image(regimg, 10, *reg.bbox[:2])
+            cords = compute_image(regimg, 20, *reg.bbox[:2])
             all.append('down')
             all.extend(cords)
             all.append('up')
@@ -236,18 +250,30 @@ if __name__ == '__main__':
             if not res: 
                 print(0)
                 continue
+            
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
             detection = landmarker.detect(mp_image)
             annotated_image, x, y = draw_landmarks_on_image(img, detection)
             cv2.imshow('img', annotated_image)
             if detection.hand_landmarks:
-                pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
+                try:
+                    pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
+                except Exception:
+                    model = tf.keras.models.load_model('mlmodels/static', compile=False)
+                    model.compile(optimizer='adam', loss='categorical_crossentropy')
+                    pred = model.predict(get_landmarks(detection, img.shape), verbose=0)
                 gt = classes[np.argmax(pred)]
-                flag, t, cnt, end = draw(gt, t, cnt, flag, x, y, end)
+                flagn, t, cnt, end = draw(gt, t, cnt, flag, x, y, end)
+                if flagn != flag:
+                    app.change_status()
+                flag = flagn
                 if end:
+                    app.change_status()
+                    flag = False
                     img = app.image
                     del model
                     device.reset()
+                    sleep(2)
                     print('Setting up stable diffusion...')
                     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
                                                                 torch_dtype=torch.float32).to('cuda')
@@ -259,18 +285,18 @@ if __name__ == '__main__':
                     pipe.enable_xformers_memory_efficient_attention()
                     pipe.enable_model_cpu_offload()
                     print('Succesfully set up stable diffusion.')
-                    img = pipe("mountains and lake, sign design, black color", 
+                    img = pipe("beautiful cat", 
                         img, 
-                        negative_prompt="many colours, many details", 
+                        negative_prompt="bad anatomy", 
                         num_inference_steps=10, 
-                        height=400, width=400).images[0]
+                        height=300, width=300).images[0]
                     del pipe
                     device.reset()
                     img.save('now.png')
                     app.display(img)
                     app.update()
-                    draw_img(img)
-                    sleep(10000)
+                    # draw_img(img)
+                    sleep(100)
 
             app.update()
             cv2.waitKey(1)

@@ -12,6 +12,7 @@ from skimage.color import rgb2hsv, hsv2rgb
 from skimage.filters import threshold_otsu
 from skimage.transform import resize
 from skimage.morphology import binary_dilation, square, remove_small_objects
+import cv2
 
 def dispersion(x):
     return ((x - x.mean()) ** 2).sum() / x.size
@@ -52,6 +53,7 @@ def get_colors(img):
     nimg[~msk] = clrmsk
 
     img = nimg.copy()
+    cv2.imshow('img', img)
     for color in tqdm(clrs):
         if (color != [0, 0, 0]).any():
             f = (img == color).sum(axis=2) == 3

@@ -11,11 +11,12 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Arrow
 from imageio.v3 import imread, imwrite
 from time import sleep  
+from main import get_gcode, send_gcode
 
-SERVO_DOWN = ''
-SERVO_UP = ''
+# SERVO_DOWN = ''
+# SERVO_UP = ''
 
-img = imread('colors.png')
+img = imread('colors_circle.png')
 f = (img == 0).sum(axis=2) == 3
 f = ~f
 lb = label(~f)
@@ -40,8 +41,17 @@ for i in range(1, len(clrs)):
         all.append('down')
         all.extend(cords)
         all.append('up')
-        ax = plt.subplot()
-        ax.imshow(img)
-        ax.add_line(Line2D(cords[:, 1], cords[:, 0], lw=1, color='black'))
-        plt.show()
-
+        print(cords)
+        cords = np.array(cords)
+        print('end')
+        # f, ax = plt.subplots()
+        # ax.imshow(img)
+        # ax.add_line(Line2D(cords[:, 1], cords[:, 0], lw=1, color='black'))
+        # for i in range(len(cords)):
+        #     ax.add_patch(Arrow(cords[i][0], cords[i][1], cords[(i + 1) % len(cords)][0] - cords[i][0], cords[(i + 1) % len(cords)][1] - cords[i][1], width=10))
+        # plt.show()
+        
+# sleep(100)
+gcode = get_gcode(all)  
+print(gcode)
+send_gcode(gcode)

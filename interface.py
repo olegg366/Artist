@@ -86,6 +86,10 @@ class App():
                                 width=self.btw, 
                                 font=self.btfont)
         self.bt_gen.pack(side='left', fill='both')
+        
+        self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', height=self.bth, width=150)
+        self.status_drawing.pack(side='left', fill='both')
+        self.now_clr = 'red'
 
         #удаление всплывающих окон
         self.root.bind('<Button-1>', lambda x: self.del_popups())
@@ -106,7 +110,15 @@ class App():
             self.fr_wd_set.destroy()
             self.fr_wd_set = None
         self.fr_clr_set.place_forget()
-
+        
+    def change_status(self):
+        self.status_drawing.pack_forget()
+        if self.now_clr == 'red':
+            self.status_drawing = tk.Frame(self.fr_ctrl, bg='green', height=self.bth, width=150)
+        else:
+            self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', height=self.bth, width=150)
+        self.status_drawing.pack(side='left', fill='both')
+        
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
         self.fr_wd_set.columnconfigure(0, minsize=15)
@@ -182,18 +194,6 @@ class App():
         print('displayed')
 
 if __name__ == '__main__':
-    def update_app():
-        global app
-        while True:
-            app.update()
     app = App()
-    upd = Process(target=update_app)
-    upd.start()
-    
-    sleep(1)
-    upd.terminate()
-    sleep(0.1)
-    upd.close()
-    del upd
-    img = Image.open('img.png')
-    app.display(img)
+    while True:
+        app.update()

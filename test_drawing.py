@@ -1,10 +1,11 @@
 import pickle
 from main import draw_img, get_gcode, send_gcode
+from PIL import Image
+import numpy as np
+import cv2
 
-all = []
+img = Image.open('now.png')
 
-with open('last_trajectory.lst', 'rb') as f:
-    all = pickle.load(f)
-    
-gcode = get_gcode(all)  
-send_gcode(gcode)
+img = Image.fromarray(np.array(img)[:, :, :3])
+
+draw_img(img)
