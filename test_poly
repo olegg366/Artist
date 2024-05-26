@@ -1,5 +1,0 @@
-import numpy as np
-
-a = np.array([[296.74451735, 301.07468416], [301.07468416, 296.74451735]])
-
-print(np.polynomial.Polynomial.fit(a[:, 0], a[:, 1], 1).convert().coef)

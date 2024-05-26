@@ -229,6 +229,7 @@ cdef list component_fill(double s, list cords, list holes, int level):
     cdef point p1, p2
     cdef bint f 
     for i in range(1, len(cords)):
+        # if cords[i - 1] != cords[i] and cords[i] != cords[(i + 1) % len(cords)] and cords[(i + 1) % len(cords)] != cords[(i + 2) % len(cords)]:
         p1, p2 = shift_segment(i - 1, i, (i + 1) % len(cords), (i + 2) % len(cords), cords, s)
         if i == 1 and in_polygon(p1, cords):
             f = True
@@ -248,15 +249,15 @@ cdef list component_fill(double s, list cords, list holes, int level):
                 ans.append(p2)
     if ans:
         cords.extend(component_fill(s, ans, holes, level + 1))
-        # ans = remove_intersections(ans)
     return cords
 
 cpdef list compute_image(np.ndarray img, int d, double sx, double sy):
     cdef list cords, holes
     cords, holes = get_borders(img, sx, sy)
+    cords = approximate(cords)
+    cords = remove_dublicates(cords)
     cords = component_fill(d, cords, holes, 0)
     cords = [[a.x, a.y] for a in cords]
-    cords = approximate(cords)
     cords = remove_dublicates(cords)
     return cords
 
@@ -268,59 +269,42 @@ cdef list remove_dublicates(list x):
         i += 1
     return x 
 
-cdef bint check_poly(np.ndarray cords, double a, double b):
+cdef bint check_poly(list cords, double a, double b):
     cdef double s = 0
-    for x, y in cords:
-        s += abs(a * x + b - y)
-    s /= len(cords)
-    return s < 3
+    for p in cords:
+        s = max(s, abs(a * p.x + b - p.y))
+    return s < 5
 
 cdef list approximate(list cords):
     cdef int i = 0
-    cdef np.ndarray ncords = pnp.array([])
-    cdef np.ndarray now = pnp.array([])
+    cdef list ncords = []
+    cdef list now = []
     cdef double a = 1, b = 0, an, bn, cn
     while i < len(cords):
-        if not now.size:
-            now = pnp.array([cords[i]])
-        else:
-            now = pnp.vstack((now, [cords[i]]))
+        now.append(cords[i])
         if len(now) < 2:
             i += 1
             continue
         try:
-            res = pnp.polynomial.Polynomial.fit(now[:, 0], now[:, 1], 1).convert().coef
+            res = pnp.polynomial.Polynomial.fit([n.x for n in now], [n.y for n in now], 1).convert().coef
             if len(res) == 1:
                 bn = res[0]
                 an = 0
             else: bn, an = res
         except pnp.linalg.LinAlgError:
-            if not ncords.size:
-                ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]])
-            else:
-                ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]]))
+            ncords.extend((point(now[0].x, now[0].x * a + b), point(now[-2].x, now[-2].x * a + b)))
             i += 1
             continue
         if not check_poly(now, an, bn):
-            if not ncords.size:
-                ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]])
-            else:
-                ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-2, 0], now[-2, 0] * a + b]]))
-            now = pnp.array([cords[i - 1], cords[i]])
+            ncords.extend((point(now[0].x, now[0].x * a + b), point(now[-2].x, now[-2].x * a + b)))
+            now = [cords[i - 1], cords[i]]
         a = an
         b = bn
         i += 1
-    if now.size:
-        # if len(now) == 1:
-        #     if not ncords:
-        #         ncords = now
-        #     else:
-        #         ncords = pnp.vstack(ncords, [now])
-        if not ncords.size:
-            ncords = pnp.array([[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-1, 0] * a + b]])
-        else:
-            ncords = pnp.vstack((ncords, [[now[0, 0], now[0, 0] * a + b], [now[-1, 0], now[-1, 0] * a + b]]))
-    return ncords.tolist()
+    if now:
+        ncords.extend([point(now[0].x, now[0].x * a + b), point(now[-1].x, now[-1].x * a + b)])
+    return ncords
+
 cdef list remove_intersections(list line):
     cdef point intcord
     cdef bint flag 

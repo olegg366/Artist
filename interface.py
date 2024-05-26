@@ -114,9 +114,12 @@ class App():
     def change_status(self):
         self.status_drawing.pack_forget()
         if self.now_clr == 'red':
-            self.status_drawing = tk.Frame(self.fr_ctrl, bg='green', height=self.bth, width=150)
+            self.now_clr = 'green'
+        elif self.now_clr == 'green':
+            self.now_clr = 'yellow'
         else:
-            self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', height=self.bth, width=150)
+            self.now_clr = 'red'
+        self.status_drawing = tk.Frame(self.fr_ctrl, bg=self.now_clr, height=self.bth, width=150)
         self.status_drawing.pack(side='left', fill='both')
         
     def build_wd_popup(self):
@@ -184,14 +187,15 @@ class App():
             self.prevw = w
             for action in self.actions:
                 action()
+                
+    def remove(self):
+        self.image_panel.pack_forget()
     
     def display(self, img: Image):
-        print('displaying')
         img = img.resize((img.size[0] * 2, img.size[1] * 2))
         self.display_img = ImageTk.PhotoImage(img)
-        panel = tk.Label(self.canvas, image=self.display_img)
-        panel.pack(side="bottom", fill="both", expand="yes")
-        print('displayed')
+        self.image_panel = tk.Label(self.canvas, image=self.display_img)
+        self.image_panel.pack(side="bottom", fill="both", expand="yes")
 
 if __name__ == '__main__':
     app = App()

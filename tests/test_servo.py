@@ -8,10 +8,9 @@ try:
     while True:
         n = input()
         if n == 'up':
-            for i in range(180):
-                ser.write(b'M42 P12 S255 T1\n')
-                sleep(1000 / 1000000)
-                ser.write(b'M42 P12 S0 T1\n')
+            ser.write(b'M42 P12 S255 T1\n')
+            sleep(1000 / 1000000)
+            ser.write(b'M42 P12 S0 T1\n')
         elif n == 'down':
             for i in range(180):
                 ser.write(b'M42 P12 S255 T1\n')
