@@ -17,11 +17,13 @@ from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
 import torch
 from get_colors import get_colors
-from accelerated_trajectory import fill, compute_image
+from cython_files.accelerated_trajectory import fill, compute_image
 import serial
 from numba import cuda
 from time import sleep
 import pickle
+
+pg.FAILSAFE = False
 device = cuda.get_current_device()
 
 DOWN = 2000
@@ -106,13 +108,12 @@ def draw(tp, time, cnt, flag, x, y, endflag):
     return flag, time, cnt, endflag
 
 def get_landmarks(detection_result, shp):
-    hand_landmarks_list = detection_result.multi_hand_landmarks
+    hand_landmarks_list = detection_result.hand_landmarks
     res = []
 
     for idx in range(len(hand_landmarks_list)):
-        hand_landmarks = hand_landmarks_list[idx].landmark
+        hand_landmarks = hand_landmarks_list[idx]
         res.append([[l.x * shp[1], l.y * shp[0]] for l in hand_landmarks])
-
     return np.array(res)
 
 def dist(ax, ay, bx, by):
@@ -215,13 +216,9 @@ if __name__ == '__main__':
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
     options = HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=model_path),
-        running_mode=VisionRunningMode.IMAGE)
+        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
+        running_mode=VisionRunningMode.VIDEO)
     print('Succesfully set up hand landmarker.')
-
-    # настройка stable diffusion
-    #перевод курсора в начальное положение
-    pg.moveTo(2, 259)
 
     #время последних жестов
     t = {
@@ -245,18 +242,9 @@ if __name__ == '__main__':
 
     #индикатор того, рисуем мы или нет 
     flag = False
-
-    #окно взаимодействия
-    # upd = Process(target=run_app)
-    # upd.start()
-
     end = False
-
-    with mp_hands.Hands(
-        model_complexity=0,
-        min_detection_confidence=0.5,
-        max_num_hands=1,
-        min_tracking_confidence=0.5) as hands:
+    timestamp = 0
+    with HandLandmarker.create_from_options(options) as landmarker:
         while True:
             res, img = vid.read()
 
@@ -264,21 +252,14 @@ if __name__ == '__main__':
                 print(0)
                 continue
             
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            detection = hands.process(img)
-            if detection.multi_hand_landmarks:
-                for hand_landmarks in detection.multi_hand_landmarks:
-                    mp_drawing.draw_landmarks(
-                        img,
-                        hand_landmarks,
-                        mp_hands.HAND_CONNECTIONS,
-                        mp_drawing_styles.get_default_hand_landmarks_style(),
-                        mp_drawing_styles.get_default_hand_connections_style())
+            detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
+            if detection.hand_landmarks:
                 lmks = get_landmarks(detection, img.shape)
                 x, y = lmks[0][8]
                 try:
                     pred = model.predict(lmks, verbose=0)
-                except Exception:
+                except Exception as e:
+                    print(e)
                     model = tf.keras.models.load_model('mlmodels/static', compile=False)
                     model.compile(optimizer='adam', loss='categorical_crossentropy')
                     pred = model.predict(lmks, verbose=0)
@@ -334,10 +315,10 @@ if __name__ == '__main__':
                     except KeyboardInterrupt:
                         app.remove()
                         # app.update()
-            cv2.imshow('img', img)
+            # cv2.imshow('img', img)
 
             app.update()
             cv2.waitKey(1)
+            timestamp += 1
 
-    # upd.terminate()
     vid.release()
