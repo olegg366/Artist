@@ -6,6 +6,8 @@ import pyautogui as pg
 import cv2
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.saved_model import signature_constants
+from tensorflow.python.saved_model import tag_constants
 import time
 from skimage.morphology import label
 from skimage.measure import regionprops
@@ -16,8 +18,8 @@ from time import time as tt
 from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
 import torch
-from get_colors import get_colors
-from cython_files.accelerated_trajectory import fill, compute_image
+# from get_colors import get_colors
+# from cython_files.accelerated_trajectory import fill, compute_image
 import serial
 from numba import cuda
 from time import sleep
@@ -114,7 +116,7 @@ def get_landmarks(detection_result, shp):
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
         res.append([[l.x * shp[1], l.y * shp[0]] for l in hand_landmarks])
-    return np.array(res)
+    return np.array(res, dtype='float32')
 
 def dist(ax, ay, bx, by):
     return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
@@ -183,6 +185,13 @@ def draw_img(img: Image):
     gcode = get_gcode(all)
     send_gcode(gcode)
     print('sent gcode')
+    
+def get_func_from_saved_model(saved_model_dir):
+   saved_model_loaded = tf.saved_model.load(
+       saved_model_dir, tags=[tag_constants.SERVING])
+   graph_func = saved_model_loaded.signatures[
+       signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+   return graph_func, saved_model_loaded
 
 def run_app():
     global app
@@ -199,9 +208,7 @@ if __name__ == '__main__':
 
     #модель распознавания жестов
     print('Loading gesture recognizer...')
-    model = tf.keras.models.load_model('mlmodels/static', compile=False)
-    model.compile(optimizer='adam', loss='categorical_crossentropy')
-    model.predict(np.zeros((1, 21, 2)), verbose=0)
+    trt_func, _ = get_func_from_saved_model('mlmodels/static_tftrt')
     print('Succesfully loaded gesture recognizer.')
 
     #разметка руки
@@ -257,7 +264,8 @@ if __name__ == '__main__':
                 lmks = get_landmarks(detection, img.shape)
                 x, y = lmks[0][8]
                 try:
-                    pred = model.predict(lmks, verbose=0)
+                    inp = {'conv1d_4_input': tf.convert_to_tensor(lmks)}
+                    pred = trt_func(**inp)['dense_5']
                 except Exception as e:
                     print(e)
                     model = tf.keras.models.load_model('mlmodels/static', compile=False)
