@@ -5,7 +5,7 @@ import mediapipe as mp
 import pyautogui as pg
 
 from matplotlib import pyplot as plt
-from time import time as t
+from time import time as tt
 import numpy as np
 import cv2
 
@@ -63,8 +63,6 @@ def draw_landmarks_on_image(rgb_image, detection_result):
     x_coordinates = [landmark.x * width for landmark in hand_landmarks]
     y_coordinates = [landmark.y * height for landmark in hand_landmarks]
 
-    x = x_coordinates[8]
-    y = y_coordinates[8]
     text_x = int(min(x_coordinates) * width)
     text_y = int(min(y_coordinates) * height) - MARGIN
 
@@ -73,9 +71,58 @@ def draw_landmarks_on_image(rgb_image, detection_result):
                 (text_x, text_y), cv2.FONT_HERSHEY_DUPLEX,
                 FONT_SIZE, HANDEDNESS_TEXT_COLOR, FONT_THICKNESS, cv2.LINE_AA)
 
-  return annotated_image, x, y
+  return annotated_image
 
+def draw(tp, time, cnt, flag, x, y, endflag):
+    global app
+    if tp == 'Pointing_Up' and flag:
+        x = 640 - x
+        x = arduino_map(x, 0, 640, 75, 1920)
+        y = arduino_map(y, 0, 480, 65, 1080)
+        cnt['clean'] = 0
+        cnt['end'] = 0
+        pg.dragTo(x, y)
+    elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
+        cnt['end'] = 0
+        if cnt['clean'] > 20:
+            pg.moveTo(155, 140)
+            pg.click()
 
+            pg.moveTo(75, 216)
+            time['clean'] = tt()
+            cnt['clean'] = 0
+        else:
+            cnt['clean'] += 1
+    else:
+        cnt['clean'] = 0
+        if tp == 'Thumb_Up' and tt() - time['start'] > 10: 
+            if cnt['end'] > 10:
+                if not flag:
+                    flag = True
+                    cnt['end'] = 0
+                    time['start'] = tt()
+                else:
+                    pg.moveTo(638, 138)
+                    pg.click()
+                    endflag = True
+                    time['start'] = tt()
+                    cnt['end'] = 0
+                    flag = False
+            else:
+                cnt['end'] += 1
+        else:
+            cnt['end'] = 0
+        
+    return flag, time, cnt, endflag
+  
+def get_landmarks(detection_result, shp):
+    hand_landmarks_list = detection_result.hand_landmarks
+    res = []
+
+    for idx in range(len(hand_landmarks_list)):
+        hand_landmarks = hand_landmarks_list[idx]
+        res.append([[l.x * shp[0], l.y * shp[1]] for l in hand_landmarks])
+    return np.array(res, dtype='float32')
 
 def arduino_map(x, in_min, in_max, out_min, out_max):
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min

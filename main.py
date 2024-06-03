@@ -1,190 +1,29 @@
 import os
-os.system('CC=nvc python compile_cython.py build_ext --inplace')
+os.system('./set_cython.sh')
 
-import mediapipe as mp
-import pyautogui as pg
 import cv2
+import pyautogui as pg
 import numpy as np
+
+import torch
+import mediapipe as mp
 import tensorflow as tf
+from numba import cuda
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.saved_model import tag_constants
-import time
-from skimage.morphology import label
-from skimage.measure import regionprops
-from multiprocessing import Process
-from utilites import draw_landmarks_on_image, arduino_map
-from interface import App
-from time import time as tt
-from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
-import torch
-# from get_colors import get_colors
-# from cython_files.accelerated_trajectory import fill, compute_image
-import serial
-from numba import cuda
+
+from skimage.transform import resize
+
+from utilites import draw_landmarks_on_image, draw, get_landmarks
+from interface import App
+from google_speech import recognize
+from get_colors import draw_img
+
 from time import sleep
-import pickle
 
 pg.FAILSAFE = False
 device = cuda.get_current_device()
-
-DOWN = 2000
-UP = 1000
-
-port = "/dev/ttyACM0"  
-baudrate = 115200 
-
-speed = 5000
-
-def servo(ser, n):
-    return None
-    # cnt = 100
-    # if n == UP:
-    #     cnt = 1
-    # for i in range(cnt):
-    #     ser.write(b'M42 P12 S255 T1\n')
-    #     sleep(n / 1000000)
-    #     ser.write(b'M42 P12 S0 T1\n')
-
-def get_gcode(t: list):
-    i = 1
-    k = 3
-    ans = []
-    while i < len(t):
-        ans += ['down']
-        i += 1
-        while i < len(t) and t[i] != 'up':
-            try:
-                ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
-            except TypeError:
-                pass
-            i += 1
-        ans += ['up']
-        if i < len(t) - 1:
-            try:
-                ans += [f'G1 X{t[i + 1][0] / k} Y{t[i + 1][1] / k} F{speed}\n']
-            except TypeError:
-                pass
-    return ans
-
-def draw(tp, time, cnt, flag, x, y, endflag):
-    global app
-    if tp == 'Pointing_Up' and flag:
-        x = 640 - x
-        x = arduino_map(x, 0, 640, 75, 1920)
-        y = arduino_map(y, 0, 480, 65, 1080)
-        cnt['clean'] = 0
-        cnt['end'] = 0
-        pg.dragTo(x, y)
-    elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
-        cnt['end'] = 0
-        if cnt['clean'] > 20:
-            pg.moveTo(155, 140)
-            pg.click()
-
-            pg.moveTo(75, 216)
-            time['clean'] = tt()
-            cnt['clean'] = 0
-        else:
-            cnt['clean'] += 1
-    else:
-        cnt['clean'] = 0
-        if tp == 'Thumb_Up' and tt() - time['start'] > 10: 
-            if cnt['end'] > 10:
-                if not flag:
-                    flag = True
-                    cnt['end'] = 0
-                    time['start'] = tt()
-                else:
-                    pg.moveTo(638, 138)
-                    pg.click()
-                    endflag = True
-                    time['start'] = tt()
-                    cnt['end'] = 0
-                    flag = False
-            else:
-                cnt['end'] += 1
-        else:
-            cnt['end'] = 0
-        
-    return flag, time, cnt, endflag
-
-def get_landmarks(detection_result, shp):
-    hand_landmarks_list = detection_result.hand_landmarks
-    res = []
-
-    for idx in range(len(hand_landmarks_list)):
-        hand_landmarks = hand_landmarks_list[idx]
-        res.append([[l.x * shp[1], l.y * shp[0]] for l in hand_landmarks])
-    return np.array(res, dtype='float32')
-
-def dist(ax, ay, bx, by):
-    return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
-
-def send_gcode(gcodes: list):
-    ser = serial.Serial(port, baudrate=baudrate)
-    sleep(2)
-    ser.write(b'G90\n')
-    prevx, prevy = 0, 0
-    for gcode in gcodes:
-        print(gcode)
-        if gcode == 'up':
-            servo(ser, UP)
-            sleep(0.2)
-        elif gcode == 'down':
-            servo(ser, DOWN)
-            sleep(0.2)
-        else:
-            if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
-                continue
-            ser.write(gcode.encode())
-            gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
-            d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
-            sleep(d + 0.2)
-            prevx, prevy = gcode[0], gcode[1]
-    ser.close()
-
-def draw_img(img: Image):
-    img = np.array(img)
-    print('getting colors..')
-    img = get_colors(img)
-    print('got colors')
-    f = (img == 0).sum(axis=2) == 3
-    f = ~f
-    lb = label(~f)
-    rgs = regionprops(lb)
-    for rg in rgs:
-        if rg.area < 30:
-            f, img = fill(*rg.coords[0], f, img)
-
-    cv2.imshow('imgg', img)
-    cv2.waitKey(1)
-    sleep(5)
-    print('getting trajectory...')
-    clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
-    idx = 0
-    all = []
-    for i in range(1, len(clrs)):
-        clr = clrs[i]
-        f = (img == clr).sum(axis=2) == 3
-        lb = label(f)
-        rgs = regionprops(lb)
-        for reg in rgs:
-            idx += 1
-            regimg = reg.image
-            cords = compute_image(regimg, 10, *reg.bbox[:2])
-            all.append('down')
-            all.extend(cords)
-            all.append('up')
-    print('got trajectory')
-    
-    with open('last_trajectory.lst', 'wb') as f:
-        pickle.dump(all, f)
-    
-    print('sending gcode...')
-    gcode = get_gcode(all)
-    send_gcode(gcode)
-    print('sent gcode')
     
 def get_func_from_saved_model(saved_model_dir):
    saved_model_loaded = tf.saved_model.load(
@@ -229,9 +68,9 @@ if __name__ == '__main__':
 
     #время последних жестов
     t = {
-        'paint' : time.time(),
-        'clean' : time.time(),
-        'start' : time.time()
+        'paint' : -1,
+        'clean' : -1,
+        'start' : -1
     }
 
     #классы жестов
@@ -263,17 +102,11 @@ if __name__ == '__main__':
             if detection.hand_landmarks:
                 lmks = get_landmarks(detection, img.shape)
                 x, y = lmks[0][8]
-                try:
-                    inp = {'conv1d_4_input': tf.convert_to_tensor(lmks)}
-                    pred = trt_func(**inp)['dense_5']
-                except Exception as e:
-                    print(e)
-                    model = tf.keras.models.load_model('mlmodels/static', compile=False)
-                    model.compile(optimizer='adam', loss='categorical_crossentropy')
-                    pred = model.predict(lmks, verbose=0)
+                inp = {'conv1d_4_input': tf.convert_to_tensor(lmks)}
+                pred = trt_func(**inp)['dense_5']
                 gt = classes[np.argmax(pred[0])]
                 flagn, t, cnt, end = draw(gt, t, cnt, flag, x, y, end)
-                if flagn != flag:
+                if flagn != flag and not end:
                     app.change_status()
                 flag = flagn
                 if end:
@@ -289,11 +122,17 @@ if __name__ == '__main__':
                         'start' : 0
                     }
                     img = app.image
-                    del model
+                    # del model
                     device.reset()
                     sleep(2)
                     print('Setting up stable diffusion...')
                     img.save('scribble.png')
+                    app.print_text('Говорите...')
+                    app.update()
+                    prompt, rus = recognize()
+                    app.print_text('Вы сказали ' + rus)
+                    app.change_status()
+                    app.update()
                     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
                                                                 torch_dtype=torch.float32).to('cuda')
                     pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
@@ -301,10 +140,10 @@ if __name__ == '__main__':
                                                                             safety_checker=None, 
                                                                             torch_dtype=torch.float32).to('cuda')
                     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-                    # pipe.enable_xformers_memory_efficient_attention()
+                    pipe.enable_xformers_memory_efficient_attention()
                     pipe.enable_model_cpu_offload()
                     print('Succesfully set up stable diffusion.')
-                    img = pipe("flower", 
+                    img = pipe(prompt + ", beautiful", 
                         img, 
                         # guess_mode=True,
                         # guidance_scale=3.0,
@@ -319,13 +158,13 @@ if __name__ == '__main__':
                     app.change_status()
                     app.update()
                     try:
-                        sleep(60)
+                        sleep(6000)
                     except KeyboardInterrupt:
-                        app.remove()
+                        app.remove_img()
                         # app.update()
             # cv2.imshow('img', img)
-
-            app.update()
+            img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
+            app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
             cv2.waitKey(1)
             timestamp += 1
 

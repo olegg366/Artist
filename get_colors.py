@@ -3,16 +3,23 @@ import numpy as np
 from numpy.ctypeslib import ndpointer 
 
 import matplotlib.pyplot as plt
-from accelerated_trajectory import mark
+from cython_files.accelerated_trajectory import mark, fill, compute_image
 
+from PIL import Image
 from tqdm import trange, tqdm
 from imageio import imread, imsave
+from time import sleep
+
 from skimage.measure import label, regionprops
 from skimage.color import rgb2hsv, hsv2rgb
 from skimage.filters import threshold_otsu
 from skimage.transform import resize
 from skimage.morphology import binary_dilation, square, remove_small_objects
+
 import cv2
+import pickle
+
+from serial_control import get_gcode, send_gcode
 
 def dispersion(x):
     return ((x - x.mean()) ** 2).sum() / x.size
@@ -70,9 +77,44 @@ def get_colors(img):
     
     return img
         
-# img = imread('triangle.png')
+def draw_img(img: Image):
+    img = np.array(img)
+    print('getting colors..')
+    img = get_colors(img)
+    print('got colors')
+    f = (img == 0).sum(axis=2) == 3
+    f = ~f
+    lb = label(~f)
+    rgs = regionprops(lb)
+    for rg in rgs:
+        if rg.area < 30:
+            f, img = fill(*rg.coords[0], f, img)
 
-# img = img[:, :, :3]
-
-# img = resize(img, (512, 512))
-# imsave('colors_triangle.png', (hsv2rgb(img) * 255).astype('uint8'))
+    cv2.imshow('imgg', img)
+    cv2.waitKey(1)
+    sleep(5)
+    print('getting trajectory...')
+    clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
+    idx = 0
+    all = []
+    for i in range(1, len(clrs)):
+        clr = clrs[i]
+        f = (img == clr).sum(axis=2) == 3
+        lb = label(f)
+        rgs = regionprops(lb)
+        for reg in rgs:
+            idx += 1
+            regimg = reg.image
+            cords = compute_image(regimg, 10, *reg.bbox[:2])
+            all.append('down')
+            all.extend(cords)
+            all.append('up')
+    print('got trajectory')
+    
+    with open('last_trajectory.lst', 'wb') as f:
+        pickle.dump(all, f)
+    
+    print('sending gcode...')
+    gcode = get_gcode(all)
+    send_gcode(gcode)
+    print('sent gcode')
