@@ -1,19 +1,19 @@
+import os
+os.system('./set_cython.sh')
 
 import numpy as np
-from numpy.ctypeslib import ndpointer 
-
 import matplotlib.pyplot as plt
-from cython_files.accelerated_trajectory import mark, fill, compute_image
+from matplotlib.lines import Line2D
+
+from cython_files.accelerated_trajectory import mark, fill, compute_image, remove_intersections
 
 from PIL import Image
-from tqdm import trange, tqdm
-from imageio import imread, imsave
+from imageio.v2 import imread, imwrite
 from time import sleep
 
 from skimage.measure import label, regionprops
-from skimage.color import rgb2hsv, hsv2rgb
+from skimage.color import rgb2hsv
 from skimage.filters import threshold_otsu
-from skimage.transform import resize
 from skimage.morphology import binary_dilation, square, remove_small_objects
 
 import cv2
@@ -60,8 +60,7 @@ def get_colors(img):
     nimg[~msk] = clrmsk
 
     img = nimg.copy()
-    cv2.imshow('img', img)
-    for color in tqdm(clrs):
+    for color in clrs:
         if (color != [0, 0, 0]).any():
             f = (img == color).sum(axis=2) == 3
             if len(np.unique(f)) == 1: continue
@@ -70,18 +69,10 @@ def get_colors(img):
             img[nf] = 0
             f = (img == color).sum(axis=2) == 3
             if len(np.unique(f)) == 1: continue
-            # f = remove_small_holes(f, 500)
             f = binary_dilation(f, square(5))
             
             img[f] = color
-    
-    return img
-        
-def draw_img(img: Image):
-    img = np.array(img)
-    print('getting colors..')
-    img = get_colors(img)
-    print('got colors')
+            
     f = (img == 0).sum(axis=2) == 3
     f = ~f
     lb = label(~f)
@@ -89,14 +80,19 @@ def draw_img(img: Image):
     for rg in rgs:
         if rg.area < 30:
             f, img = fill(*rg.coords[0], f, img)
-
-    cv2.imshow('imgg', img)
-    cv2.waitKey(1)
-    sleep(5)
+    return img
+        
+def draw_img(img: Image):
+    img = np.array(img)
+    # print('getting colors..')
+    # img = get_colors(img)
+    # print('got colors')
+    
     print('getting trajectory...')
     clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
     idx = 0
     all = []
+    trajectory = []
     for i in range(1, len(clrs)):
         clr = clrs[i]
         f = (img == clr).sum(axis=2) == 3
@@ -109,12 +105,26 @@ def draw_img(img: Image):
             all.append('down')
             all.extend(cords)
             all.append('up')
+            trajectory.extend(cords)
     print('got trajectory')
+    # print(trajectory)
+    trajectory = np.array(trajectory)
+    ax = plt.subplot()
+    ax.imshow(img)
+    ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
+    ax.add_line(Line2D([trajectory[0, 1], trajectory[-1, 1]], [trajectory[0, 0], trajectory[-1, 0]], lw=1, color='white'))
+    plt.show()
     
     with open('last_trajectory.lst', 'wb') as f:
         pickle.dump(all, f)
     
-    print('sending gcode...')
-    gcode = get_gcode(all)
-    send_gcode(gcode)
-    print('sent gcode')
+    # print('sending gcode...')
+    # gcode = get_gcode(all)
+    # send_gcode(gcode)
+    # print('sent gcode')
+    # print(remove_intersections([[-5, 1], [-3, 4], [3, 5], [-1, 6], [2, 3], [1, 0]]))
+    
+if __name__ == '__main__':
+    img = imread('images/colors_square.png')
+    draw_img(img)
+    sleep(10000)
