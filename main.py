@@ -1,6 +1,3 @@
-import os
-os.system('./set_cython.sh')
-
 import cv2
 import pyautogui as pg
 import numpy as np

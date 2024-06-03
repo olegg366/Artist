@@ -1,6 +1,6 @@
 import win32clipboard as wc
 from io import BytesIO
-from imageio import imread
+from imageio.v2 import imread
 from PIL import Image
 
 def send_to_clipboard(clip_type, data):
