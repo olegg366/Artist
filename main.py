@@ -18,7 +18,7 @@ from skimage.transform import resize
 from utilites import draw_landmarks_on_image, draw, get_landmarks
 from interface import App
 from google_speech import recognize
-from get_colors import draw_img
+from get_trajectory import draw_img
 
 from time import sleep
 
