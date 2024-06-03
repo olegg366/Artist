@@ -3,11 +3,14 @@ from PIL import ImageTk, Image, ImageDraw
 from webcolors import name_to_rgb
 from multiprocessing import Process
 from time import sleep
+import cv2
+import numpy as np
 
 class App():
     def __init__(self):
 
         self.root = tk.Tk()
+        self.root.attributes("-fullscreen", True)
 
         self.line_id = None
         self.line_points = []
@@ -28,9 +31,9 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Times 20'
+        self.btfont = 'Times 26'
         self.bth = 5
-        self.btw = 10
+        self.btw = 13
 
         #кнопка очистки
         self.bt_del = tk.Button(self.fr_ctrl, 
@@ -87,7 +90,7 @@ class App():
                                 font=self.btfont)
         self.bt_gen.pack(side='left', fill='both')
         
-        self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', height=self.bth, width=150)
+        self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', width=250)
         self.status_drawing.pack(side='left', fill='both')
         self.now_clr = 'red'
 
@@ -97,7 +100,14 @@ class App():
         #картинка, чтобы затем генерировать
         self.image = Image.new("RGB", (512, 512), (255, 255, 255))
         self.draw = ImageDraw.Draw(self.image)
-
+        
+        self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((320, 240))))
+        self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
+        self.points_image_panel.pack(side='right', fill='both')
+        
+        self.text_lb = tk.Label(self.fr_ctrl, relief='groove')
+        self.text_lb.pack(side='left', fill='both', expand=True)
+        
         #предыдущие высота и ширина canvas
         self.prevw = 0
         self.prevh = 0
@@ -112,15 +122,13 @@ class App():
         self.fr_clr_set.place_forget()
         
     def change_status(self):
-        self.status_drawing.pack_forget()
         if self.now_clr == 'red':
             self.now_clr = 'green'
         elif self.now_clr == 'green':
             self.now_clr = 'yellow'
         else:
             self.now_clr = 'red'
-        self.status_drawing = tk.Frame(self.fr_ctrl, bg=self.now_clr, height=self.bth, width=150)
-        self.status_drawing.pack(side='left', fill='both')
+        self.status_drawing.configure(bg=self.now_clr)
         
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
@@ -170,16 +178,17 @@ class App():
     def set_color(self, x):
         self.line_options['fill'] = self.clrs[x]
         self.fr_clr_set.place_forget()
-        # self.end_line()
 
     def change_width(self, x):
         self.line_options['width'] = x
         self.fr_wd_set.place_forget()
-        # self.end_line()
 
-    def update(self):
+    def update(self, image=None):
+        if image is not None:
+            self.points_image = ImageTk.PhotoImage(Image.fromarray(image.astype('uint8')))
+            self.points_image_panel.configure(image=self.points_image)
         self.root.update()
-        w, h = self.canvas.winfo_height(), self.canvas.winfo_width()
+        h, w = self.canvas.winfo_height(), self.canvas.winfo_width()
         if w != self.prevw or h != self.prevh:
             self.image = self.image.resize((w, h))
             self.draw = ImageDraw.Draw(self.image)
@@ -188,7 +197,10 @@ class App():
             for action in self.actions:
                 action()
                 
-    def remove(self):
+    def print_text(self, text):
+        self.text_lb.configure(text=text, font=self.btfont)
+                
+    def remove_img(self):
         self.image_panel.pack_forget()
     
     def display(self, img: Image):
@@ -196,8 +208,15 @@ class App():
         self.display_img = ImageTk.PhotoImage(img)
         self.image_panel = tk.Label(self.canvas, image=self.display_img)
         self.image_panel.pack(side="bottom", fill="both", expand="yes")
-
+from skimage.transform import resize
 if __name__ == '__main__':
+    vid = cv2.VideoCapture(0)
     app = App()
     while True:
-        app.update()
+        res, img = vid.read()
+        if not res:
+            break
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        app.update(resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255)
+        app.print_text('Text')
+    vid.release()
