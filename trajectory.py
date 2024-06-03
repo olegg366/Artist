@@ -1,7 +1,7 @@
 import os
-os.system('CC=nvc python compile_cython.py build_ext --inplace')
+os.system('./set_cython.sh')
 
-from accelerated_trajectory import fill, compute_image
+from cython_files.accelerated_trajectory import fill, compute_image
 import numpy as np
 from random import randint
 from skimage.morphology import label
@@ -13,7 +13,7 @@ from imageio.v3 import imread, imwrite
 from time import sleep  
 from main import get_gcode, send_gcode
 
-img = imread('colors_triangle.png')
+img = imread('colors_circle.png')
 f = (img == 0).sum(axis=2) == 3
 f = ~f
 lb = label(~f)
