@@ -11,7 +11,7 @@ def get_landmarks(detection_result, shp):
     # Loop through the detected hands to visualize.
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
-        res.append([[l.x * w, l.y * h] for l in hand_landmarks])
+        res.append([[l.x, l.y] for l in hand_landmarks])
         # res.append([i for l in hand_landmarks for i in [l.x, l.y]])
 
     return res
