@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-from cython_files.accelerated_trajectory import mark, fill, compute_image, remove_intersections
+from cython_lib.accelerated_trajectory import mark, fill, compute_image
 
 from PIL import Image
 from imageio.v2 import imread, imwrite
@@ -101,19 +101,24 @@ def draw_img(img: Image):
         for reg in rgs:
             idx += 1
             regimg = reg.image
-            cords = compute_image(regimg, 10, *reg.bbox[:2])
-            all.append('down')
-            all.extend(cords)
-            all.append('up')
-            trajectory.extend(cords)
+            trajectory = compute_image(regimg, 10, *reg.bbox[:2])
+            trajectory = np.array(trajectory)
+            ax = plt.subplot()
+            ax.imshow(img)
+            ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
+            ax.add_line(Line2D([trajectory[0, 1], trajectory[-1, 1]], [trajectory[0, 0], trajectory[-1, 0]], lw=1, color='white'))
+            plt.show()
+            # all.append('down')
+            # all.extend(cords)
+            # all.append('up')
+            # trajectory.extend(cords)
     print('got trajectory')
-    # print(trajectory)
-    trajectory = np.array(trajectory)
-    ax = plt.subplot()
-    ax.imshow(img)
-    ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
-    ax.add_line(Line2D([trajectory[0, 1], trajectory[-1, 1]], [trajectory[0, 0], trajectory[-1, 0]], lw=1, color='white'))
-    plt.show()
+    # trajectory = np.array(trajectory)
+    # ax = plt.subplot()
+    # ax.imshow(img)
+    # ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
+    # ax.add_line(Line2D([trajectory[0, 1], trajectory[-1, 1]], [trajectory[0, 0], trajectory[-1, 0]], lw=1, color='white'))
+    # plt.show()
     
     with open('last_trajectory.lst', 'wb') as f:
         pickle.dump(all, f)
