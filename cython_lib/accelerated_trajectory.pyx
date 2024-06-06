@@ -3,11 +3,10 @@
 cimport numpy as np
 import math
 import numpy as pnp
-from time import sleep
-from random import choice
 
 cdef list var = [[i, j] for i in range(-1, 2) for j in range(-1, 2) if not (i != 0 and j != 0) and not (i == 0 and j == 0)]
 var += [[i, j] for i in range(-1, 2) for j in range(-1, 2) if (i != 0 and j != 0)]
+cdef double pi = 3.14159265358979323846
 
 cdef class point: 
     cdef public double x, y
@@ -100,7 +99,7 @@ cpdef list fill(int x, int y, np.ndarray vis, np.ndarray img):
     cdef list ans = [vis, img]
     return ans
 
-cdef tuple get_borders(np.ndarray img, double sx, double sy):
+cdef tuple get_borders(np.ndarray img):
     cdef int val
     img = img.astype('int')
     cdef np.ndarray ans = pnp.zeros((img.shape[0], img.shape[1], 2), dtype='bool')
@@ -138,7 +137,7 @@ cdef tuple get_borders(np.ndarray img, double sx, double sy):
     while (vis == ans).sum().sum() != ans.shape[0] * ans.shape[1]:
         l = [nonzero(ans & (~vis))[0]]
         comp = []
-        comp.append(point(l[0][0] + sx, l[0][1] + sy))
+        comp.append(point(l[0][0], l[0][1]))
         while len(l) != 0:
             x, y = l[0]
             vis[x, y] = 1
@@ -146,7 +145,7 @@ cdef tuple get_borders(np.ndarray img, double sx, double sy):
             for dx, dy in var:
                 xn, yn = x + dx, y + dy
                 if in_image(xn, yn, [img.shape[0], img.shape[1]]) and ans[xn, yn] and not vis[xn, yn]:
-                    comp.append(point(xn + sx, yn + sy))
+                    comp.append(point(xn, yn))
                     l.append([xn, yn])
                     vis[xn, yn] = 1
                     break
@@ -181,12 +180,12 @@ cdef bint in_polygon(a, list p, list h=[]):
     for i in range(len(h)):
         j = (i + 1) % len(h)
         if check_seg(h[i], h[j], a):
-            return anglep >= math.pi
+            return anglep >= pi
         v1 = vec(a, h[i])
         v2 = vec(a, h[j])
         angleh += get_angle(v1, v2)
     angleh = abs(angleh)
-    return anglep >= math.pi and angleh < math.pi
+    return anglep >= pi and angleh < pi
 
 cdef list nonzero(np.ndarray x):
     return list(zip(*pnp.nonzero(x)))
@@ -197,7 +196,7 @@ cdef bint check_near(int x, int y, list deltas, np.ndarray bimage, list borders=
         xn, yn = x + dtx, y + dty
         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):
             if borders is None:
-                if bimage[xn, yn]:
+                if not bimage[xn, yn]:
                     return False
             else:
                 if not in_polygon((xn, yn), borders, holes):
@@ -209,26 +208,32 @@ cdef tuple random_point(np.ndarray bimage, list deltas, list borders=None, list 
     x, y = -1, -1
     cdef int cnt = len(nonzero(bimage)) - 1
     cdef list nz = nonzero(bimage)
+    x, y = nz[0]
     while cnt >= 0 and not check_near(x, y, deltas, bimage, borders, holes):
-        x, y = nz[cnt]
         cnt -= 1
+        x, y = nz[cnt]
     return x, y
 
-cdef list get_path(a, b):
+
+cdef list get_path(a, b, shp):
     cdef int x, y, tx, ty, xn, yn
     x, y = a
     tx, ty = b
     cdef list l = [[x, y]]
     cdef list ans = []
-    cdef double prevd, d
+    cdef double prevd = 1e9, d
+    cdef np.ndarray vis = pnp.zeros(shp, dtype='bool')
     while True:
         for dx, dy in var:
             xn, yn = x + dx, y + dy
+            if not in_image(xn, yn, list(shp)) or vis[xn, yn]:
+                continue
             if xn == tx and yn == ty:
                 return ans + [[tx, ty]]
             d = dist((xn, yn), (tx, ty))
             if d < prevd:
                 x, y = xn, yn
+                vis[x, y] = 1
                 prevd = d
                 ans.append([x, y])
                 break
@@ -237,9 +242,8 @@ cpdef list compute_image(np.ndarray bimage, int d, double sx, double sy):
     cdef list deltas2 = [[i, j] for i in range(-d, d + 1) for j in range(-d, d + 1) if abs(dist((i, j), (0, 0)) - d) <= 0.5]
     cdef list mxdeltas = [[i, j] for i in range(-d // 2, d // 2 + 1) for j in range(-d // 2, d // 2 + 1) if abs(dist((i, j), (0, 0)) - d // 2) <= 0.5]
     cdef list deltas = [[i, j] for i in range(-d // 2, d // 2 + 1) for j in range(-d // 2, d // 2 + 1) if dist((i, j), (0, 0)) <= d // 2 + 0.5]
-    
     cdef list borders, holes
-    borders, holes = get_borders(bimage, sx, sy)
+    borders, holes = get_borders(bimage)
 
     cdef list ans = []
 
@@ -249,27 +253,25 @@ cpdef list compute_image(np.ndarray bimage, int d, double sx, double sy):
     xp, yp = 0, 0
     it = 0
 
-    while it != 100:
-        print('deltas')
+    while (bimage != 0).sum() != 0:
         change = False
         for dtx, dty in deltas2:
             xn, yn = x + dtx, y + dty
-            if check_near(xn, yn, mxdeltas, bimage):
+            if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]) and bimage[xn, yn] and check_near(xn, yn, mxdeltas, bimage):
                 x, y = xn, yn
-                ans.append([x, y])
+                ans.append([x + sx, y + sy])
                 change = True
                 break
-        print('end')
         if not change:
             x, y = random_point(bimage, mxdeltas)
             # ans.append([-1e6, -1e6])
-            ans.append([x, y])
+            ans.append([x + sx, y + sy])
             # ans.append([1e6, 1e6])
             if x == -1:
                 x, y = random_point(bimage, mxdeltas, borders, holes)
-        
+
         if it != 0:
-            for xn, yn in get_path((xp, yp), (x, y)):
+            for xn, yn in get_path((xp, yp), (x, y), (bimage.shape[0], bimage.shape[1])):
                 for dtx, dty in deltas:
                     xnn, ynn = xn + dtx, yn + dty
                     if in_image(xnn, ynn, [bimage.shape[0], bimage.shape[1]]):

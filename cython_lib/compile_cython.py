@@ -25,8 +25,8 @@ if NVCPP_EXE is not None:
 class custom_build_ext(build_ext):
     def build_extensions(self):
         if NVCPP_EXE:
-            compile_args = "-fPIC -gpu=cuda11.8 -std=c++17"
-            link_args = "-shared"
+            compile_args = "-fPIC -stdpar -gpu=cuda11.8 -std=c++17"
+            link_args = "-shared -stdpar"
             self.compiler.set_executable(
                 "compiler_so",
                 NVCPP_EXE + " " + compile_args
@@ -48,7 +48,7 @@ ext = cythonize([
         library_dirs=library_dirs,
         runtime_library_dirs=library_dirs,
         extra_compile_args=["-std=c++17"]
-    )])
+    )], annotate=True)
 
 setup(
     name='accelerated_trajectory',

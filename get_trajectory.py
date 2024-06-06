@@ -84,9 +84,9 @@ def get_colors(img):
         
 def draw_img(img: Image):
     img = np.array(img)
-    # print('getting colors..')
-    # img = get_colors(img)
-    # print('got colors')
+    print('getting colors..')
+    img = get_colors(img)
+    print('got colors')
     
     print('getting trajectory...')
     clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
@@ -130,6 +130,6 @@ def draw_img(img: Image):
     # print(remove_intersections([[-5, 1], [-3, 4], [3, 5], [-1, 6], [2, 3], [1, 0]]))
     
 if __name__ == '__main__':
-    img = imread('images/colors_square.png')
+    img = imread('images/colors_circle.png')
     draw_img(img)
     sleep(10000)
