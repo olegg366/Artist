@@ -284,3 +284,38 @@ cpdef list compute_image(np.ndarray bimage, int d, double sx, double sy):
         xp, yp = x, y
         it += 1
     return ans
+
+cdef bint check_poly(list cords, double a, double b):
+    cdef double s = 0
+    for p in cords:
+        s = max(s, abs(a * p.x + b - p.y))
+    return s < 5
+
+cdef list approximate(list cords):
+    cdef int i = 0
+    cdef list ncords = []
+    cdef list now = []
+    cdef double a = 1, b = 0, an, bn, cn
+    while i < len(cords):
+        now.append(cords[i])
+        if len(now) < 2:
+            i += 1
+            continue
+        try:
+            res = pnp.polynomial.Polynomial.fit([n.x for n in now], [n.y for n in now], 1).convert().coef
+            if len(res) == 1:
+                bn = res[0]
+                an = 0
+            else: bn, an = res
+        except pnp.linalg.LinAlgError:
+            i += 1
+            continue
+        if not check_poly(now, an, bn):
+            ncords.extend((now[0], now[-2]))
+            now = [cords[i]]
+        a = an
+        b = bn
+        i += 1
+    if now:
+        ncords.extend([now[0], now[-1]])
+    return ncords

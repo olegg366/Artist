@@ -4469,7 +4469,7 @@ struct __pyx_opt_args_22accelerated_trajectory_check_near {
 /* … */
         goto __pyx_L8;
       }
-</pre><pre class="cython line score-19" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">199</span>:                 <span class="k">if</span> <span class="n">bimage</span><span class="p">[</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">]:</span></pre>
+</pre><pre class="cython line score-19" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">199</span>:                 <span class="k">if</span> <span class="ow">not</span> <span class="n">bimage</span><span class="p">[</span><span class="n">xn</span><span class="p">,</span> <span class="n">yn</span><span class="p">]:</span></pre>
 <pre class='cython code score-19 '>        __pyx_t_4 = <span class='pyx_c_api'>__Pyx_PyInt_From_int</span>(__pyx_v_xn);<span class='error_goto'> if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 199, __pyx_L1_error)</span>
         <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_4);
         __pyx_t_5 = <span class='pyx_c_api'>__Pyx_PyInt_From_int</span>(__pyx_v_yn);<span class='error_goto'> if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 199, __pyx_L1_error)</span>
@@ -4487,7 +4487,8 @@ struct __pyx_opt_args_22accelerated_trajectory_check_near {
         <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_3); __pyx_t_3 = 0;
         __pyx_t_11 = <span class='pyx_c_api'>__Pyx_PyObject_IsTrue</span>(__pyx_t_5); if (unlikely((__pyx_t_11 &lt; 0))) <span class='error_goto'>__PYX_ERR(0, 199, __pyx_L1_error)</span>
         <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_5); __pyx_t_5 = 0;
-        if (__pyx_t_11) {
+        __pyx_t_12 = (!__pyx_t_11);
+        if (__pyx_t_12) {
 /* … */
         }
 </pre><pre class="cython line score-1" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">200</span>:                     <span class="k">return</span> <span class="bp">False</span></pre>
@@ -4509,12 +4510,12 @@ struct __pyx_opt_args_22accelerated_trajectory_check_near {
         if (<span class='pyx_c_api'>__Pyx_PyTuple_SET_ITEM</span>(__pyx_t_4, 1, __pyx_t_3)) <span class='error_goto'>__PYX_ERR(0, 202, __pyx_L1_error)</span>;
         __pyx_t_5 = 0;
         __pyx_t_3 = 0;
-        __pyx_t_12.__pyx_n = 1;
-        __pyx_t_12.h = __pyx_v_holes;
-        __pyx_t_11 = __pyx_f_22accelerated_trajectory_in_polygon(__pyx_t_4, __pyx_v_borders, &amp;__pyx_t_12); if (unlikely(__pyx_t_11 == ((int)-1) &amp;&amp; <span class='py_c_api'>PyErr_Occurred</span>())) <span class='error_goto'>__PYX_ERR(0, 202, __pyx_L1_error)</span>
+        __pyx_t_13.__pyx_n = 1;
+        __pyx_t_13.h = __pyx_v_holes;
+        __pyx_t_12 = __pyx_f_22accelerated_trajectory_in_polygon(__pyx_t_4, __pyx_v_borders, &amp;__pyx_t_13); if (unlikely(__pyx_t_12 == ((int)-1) &amp;&amp; <span class='py_c_api'>PyErr_Occurred</span>())) <span class='error_goto'>__PYX_ERR(0, 202, __pyx_L1_error)</span>
         <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_13 = (!__pyx_t_11);
-        if (__pyx_t_13) {
+        __pyx_t_11 = (!__pyx_t_12);
+        if (__pyx_t_11) {
 /* … */
         }
       }

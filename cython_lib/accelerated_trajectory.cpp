@@ -10495,8 +10495,8 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
   int __pyx_t_9;
   npy_intp *__pyx_t_10;
   int __pyx_t_11;
-  struct __pyx_opt_args_22accelerated_trajectory_in_polygon __pyx_t_12;
-  int __pyx_t_13;
+  int __pyx_t_12;
+  struct __pyx_opt_args_22accelerated_trajectory_in_polygon __pyx_t_13;
   int __pyx_lineno = 0;
   const char *__pyx_filename = NULL;
   int __pyx_clineno = 0;
@@ -10607,7 +10607,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
  *         xn, yn = x + dtx, y + dty
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):             # <<<<<<<<<<<<<<
  *             if borders is None:
- *                 if bimage[xn, yn]:
+ *                 if not bimage[xn, yn]:
  */
     __pyx_t_10 = __pyx_f_5numpy_7ndarray_5shape_shape(__pyx_v_bimage); if (unlikely(__pyx_t_10 == ((npy_intp *)NULL) && PyErr_Occurred())) __PYX_ERR(0, 197, __pyx_L1_error)
     __pyx_t_3 = PyInt_FromSsize_t((__pyx_t_10[0])); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 197, __pyx_L1_error)
@@ -10631,7 +10631,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
  *         xn, yn = x + dtx, y + dty
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):
  *             if borders is None:             # <<<<<<<<<<<<<<
- *                 if bimage[xn, yn]:
+ *                 if not bimage[xn, yn]:
  *                     return False
  */
       __pyx_t_11 = (__pyx_v_borders == ((PyObject*)Py_None));
@@ -10640,7 +10640,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
         /* "accelerated_trajectory.pyx":199
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):
  *             if borders is None:
- *                 if bimage[xn, yn]:             # <<<<<<<<<<<<<<
+ *                 if not bimage[xn, yn]:             # <<<<<<<<<<<<<<
  *                     return False
  *             else:
  */
@@ -10661,11 +10661,12 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
         __pyx_t_11 = __Pyx_PyObject_IsTrue(__pyx_t_5); if (unlikely((__pyx_t_11 < 0))) __PYX_ERR(0, 199, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        if (__pyx_t_11) {
+        __pyx_t_12 = (!__pyx_t_11);
+        if (__pyx_t_12) {
 
           /* "accelerated_trajectory.pyx":200
  *             if borders is None:
- *                 if bimage[xn, yn]:
+ *                 if not bimage[xn, yn]:
  *                     return False             # <<<<<<<<<<<<<<
  *             else:
  *                 if not in_polygon((xn, yn), borders, holes):
@@ -10677,7 +10678,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
           /* "accelerated_trajectory.pyx":199
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):
  *             if borders is None:
- *                 if bimage[xn, yn]:             # <<<<<<<<<<<<<<
+ *                 if not bimage[xn, yn]:             # <<<<<<<<<<<<<<
  *                     return False
  *             else:
  */
@@ -10687,7 +10688,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
  *         xn, yn = x + dtx, y + dty
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):
  *             if borders is None:             # <<<<<<<<<<<<<<
- *                 if bimage[xn, yn]:
+ *                 if not bimage[xn, yn]:
  *                     return False
  */
         goto __pyx_L8;
@@ -10713,12 +10714,12 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
         if (__Pyx_PyTuple_SET_ITEM(__pyx_t_4, 1, __pyx_t_3)) __PYX_ERR(0, 202, __pyx_L1_error);
         __pyx_t_5 = 0;
         __pyx_t_3 = 0;
-        __pyx_t_12.__pyx_n = 1;
-        __pyx_t_12.h = __pyx_v_holes;
-        __pyx_t_11 = __pyx_f_22accelerated_trajectory_in_polygon(__pyx_t_4, __pyx_v_borders, &__pyx_t_12); if (unlikely(__pyx_t_11 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 202, __pyx_L1_error)
+        __pyx_t_13.__pyx_n = 1;
+        __pyx_t_13.h = __pyx_v_holes;
+        __pyx_t_12 = __pyx_f_22accelerated_trajectory_in_polygon(__pyx_t_4, __pyx_v_borders, &__pyx_t_13); if (unlikely(__pyx_t_12 == ((int)-1) && PyErr_Occurred())) __PYX_ERR(0, 202, __pyx_L1_error)
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_13 = (!__pyx_t_11);
-        if (__pyx_t_13) {
+        __pyx_t_11 = (!__pyx_t_12);
+        if (__pyx_t_11) {
 
           /* "accelerated_trajectory.pyx":203
  *             else:
@@ -10747,7 +10748,7 @@ static int __pyx_f_22accelerated_trajectory_check_near(int __pyx_v_x, int __pyx_
  *         xn, yn = x + dtx, y + dty
  *         if in_image(xn, yn, [bimage.shape[0], bimage.shape[1]]):             # <<<<<<<<<<<<<<
  *             if borders is None:
- *                 if bimage[xn, yn]:
+ *                 if not bimage[xn, yn]:
  */
     }
 
