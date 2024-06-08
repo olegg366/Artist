@@ -1,22 +1,31 @@
-from ctypes import CDLL, POINTER
-import ctypes
+import ctypes as c
 import numpy as np
 
 import os
-os.system('gcc -shared -fPIC -o mylib.so trajectory.cpp -lstdc++')
+os.system('gcc -shared -fPIC -o trajectory.so trajectory.cpp -lstdc++')
 
-mylib = CDLL("mylib.so")
+lib = c.CDLL('trajectory.so')
 
-ND_POINTER_2 = np.ctypeslib.ndpointer(dtype=np.int32, 
-                                      ndim=2,
-                                      flags="C")
+DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
+                                   ndim=2,
+                                   flags='C')
 
-mylib.test_approximation.argtypes = [ND_POINTER_2, ctypes.c_size_t, POINTER(ctypes.c_longdouble), POINTER(ctypes.c_longdouble)]
-mylib.test_approximation.restype = None
+DPOINTER3D = np.ctypeslib.ndpointer(dtype=np.float128,
+                                   ndim=3,
+                                   flags='C')
 
-X = np.array([[-6, 2], [-3, 4], [1, 2], [2, 6], [7, 3]], dtype='int32', order='C')
-a = ctypes.c_longdouble(0)
-b = ctypes.c_longdouble(0)
+IPOINTER2D = np.ctypeslib.ndpointer(dtype=np.int32,
+                                   ndim=2,
+                                   flags='C')
 
-vec = mylib.test_approximation(X, X.shape[0], ctypes.byref(a), ctypes.byref(b))
-print(a, b)
+lib.pmark.argtypes = [DPOINTER2D, DPOINTER2D, c.c_size_t, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.pmark.restype = None
+
+lib.pfill.argtypes = [c.c_int32, c.c_int32, IPOINTER2D, DPOINTER3D, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.pfill.restype = None
+
+lib.pcompute_image.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.c_longdouble, c.c_longdouble]
+lib.pcompute_image.restype = IPOINTER2D
+
+X = np.ones((2, 3), dtype='float128', order="C")
+Y = np.ones((5, 3), dtype='float128')

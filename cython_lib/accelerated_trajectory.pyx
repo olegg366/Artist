@@ -319,3 +319,11 @@ cdef list approximate(list cords):
     if now:
         ncords.extend([now[0], now[-1]])
     return ncords
+
+cdef list remove_dublicates(list x):
+    i = 0
+    while i < len(x):
+        while len(x) > 1 and i < len(x) and x[(i + 1) % len(x)] == x[i]:
+            x.pop(i)
+        i += 1
+    return x 

@@ -2,6 +2,9 @@
 #include <vector>
 #include <deque>
 #include <iostream>
+#include <fstream>
+#include <memory.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -15,7 +18,7 @@ typedef vector <pair <int, int>> vc;
 
 extern "C"
 {    
-    bool eqvdvd (vd &a, vd &b)
+    bool eqvdvd (const vd &a, const vd &b)
     {
         for (int i = 0; i < a.size(); i++)
         {
@@ -24,12 +27,12 @@ extern "C"
         return 1;
     }
 
-    bool neqvdvd (vd &a, vd &b)
+    bool neqvdvd (const vd &a, const vd &b)
     {
         return !(a == b);
     }
 
-    bool eqvvivvi (vvi &a, vvi &b)
+    bool eqvvivvi (const vvi &a, const vvi &b)
     {
         for (int x = 0; x < a.size(); x++)
         {
@@ -41,7 +44,7 @@ extern "C"
         return 1;
     }
 
-    bool neqvii (vvi &a, const int &b)
+    bool neqvii (const vvi &a, const int &b)
     {
         for (int x = 0; x < a.size(); x++)
         {
@@ -53,21 +56,21 @@ extern "C"
         return 0;
     }
 
-    vd subvdvd (vd &a, vd &b)
+    vd subvdvd (const vd &a, const vd &b)
     {
         vd ans(a.size());
         for (int i = 0; i < a.size(); i++) ans[i] = a[i] - b[i];
         return ans;
     }
 
-    vvd subvdvvd (vd &a, vvd &b)
+    vvd subvdvvd (const vd a, const vvd b)
     {
         vvd ans(b.size());
         for (int i = 0; i < b.size(); i++) ans[i] = subvdvd(a, b[i]);
         return ans;
     }
 
-    vvi vand (vvi &a, vvi &b)
+    vvi vand (const vvi &a, const vvi &b)
     {
         vvi ans(a.size(), vi(a[0].size()));
         for (int x = 0; x < a.size(); x++)
@@ -77,7 +80,7 @@ extern "C"
         return ans;
     }
 
-    vvi vnot(vvi &a)
+    vvi vnot(const vvi &a)
     {
         vvi ans(a.size(), vi(a[0].size()));
         for (int x = 0; x < a.size(); x++)
@@ -87,21 +90,21 @@ extern "C"
         return ans;
     }
 
-    vd absvd(vd x)
+    vd absvd(const vd &x)
     {
         vd ans(x.size());
         for (int i = 0; i < x.size(); i++) ans[i] = abs(x[i]);
         return ans;
     }
 
-    ld sumvd(vd x)
+    ld sumvd(const vd &x)
     {
         ld ans = 0;
         for (int i = 0; i < x.size(); i++) ans += x[i];
         return ans;
     }
 
-    vd sumvvd(vvd x)
+    vd sumvvd(const vvd &x)
     {
         vd ans(x.size());
         for (int i = 0; i < x.size(); i++) ans[i] = sumvd(x[i]);
@@ -140,7 +143,7 @@ extern "C"
         return idx;
     }
 
-    vvd mark(vvd img, vvd itsa)
+    vvd cmark(vvd &img, vvd &itsa)
     {
         vvd nimg(img.size(), vd (3));
         vd zrs = {0, 0, 0};
@@ -152,7 +155,7 @@ extern "C"
         return nimg;
     }
 
-    pair <vvi, vvvd> fill(int x, int y, vvi &vis, vvvd &img)
+    void cfill(int x, int y, vvi &vis, vvvd &img)
     {
         vvi vis1 = vis;
         vis[x][y] = 1;
@@ -205,10 +208,9 @@ extern "C"
                 }
             }
         }
-        return {vis, img};
     }
 
-    vc nonzero(vvi vec)
+    vc nonzero(vvi &vec)
     {
         vc ans;
         for (int x = 0; x < vec.size(); x++)
@@ -221,7 +223,7 @@ extern "C"
         return ans;
     }
 
-    bool check_near(int x, int y, vc deltas, vvi bimage)
+    bool check_near(int x, int y, vc &deltas, vvi &bimage)
     {
         int xn, yn, dtx, dty;
         for (int i = 0; i < deltas.size(); i++)
@@ -238,35 +240,31 @@ extern "C"
         return 1;
     }
 
-    pair <int, int> random_point(vvi bimage, vc deltas)
+    pair <int, int> random_point(vvi &bimage, vc &deltas)
     {
-        int x, y;
+        int x = -1, y = -1;
         vc nz = nonzero(bimage);
-        int cnt = nz.size();
-        x = nz[0].first;
-        y = nz[0].second;
-        while (cnt >= 0 && !check_near(x, y, deltas, bimage))
+        int cnt = 0;
+        while (cnt < nz.size() && !check_near(x, y, deltas, bimage))
         {
-            cnt--;
             x = nz[cnt].first;
             y = nz[cnt].second;
+            cnt++;
         }
         if (!check_near(x, y, deltas, bimage)) return {-1, -1};
         return {x, y};
     }
 
-    pair <int, int> random_pointf(vvi bimage, vc deltas, vvi filter)
+    pair <int, int> random_pointf(vvi &bimage, vc &deltas, vvi &filter)
     {
-        int x, y;
+        int x = 0, y = 0;
         vc nz = nonzero(bimage);
-        int cnt = nz.size();
-        x = nz[0].first;
-        y = nz[0].second;
-        while (cnt >= 0 && !filter[x][y])
+        int cnt = 0;
+        while (cnt < nz.size() && !filter[x][y])
         {
-            cnt--;
             x = nz[cnt].first;
             y = nz[cnt].second;
+            cnt++;
         }
         if (!filter[x][y]) return {-1, -1};
         return {x, y};
@@ -278,10 +276,11 @@ extern "C"
         {
             for (int y = -d; y <= d; y++)
             {
-                if (abs(x) <= d / 2 && abs(y) <= d / 2)
+                if (x == 0 && y == 0) continue;
+                if (sqrt((ld) (x * x + y * y)) <= (d / 2 + 0.5))
                 {
                     deltas.push_back({x, y});
-                    if (sqrt((double) (x * x + y * y)) - (d / 2) <= 0.5) 
+                    if ((sqrt((ld) (x * x + y * y)) - (d / 2)) <= 0.5) 
                         mxdeltas.push_back({x, y});
                 }
                 if (sqrt((ld) (x * x + y * y)) - d <= 0.5) 
@@ -290,46 +289,97 @@ extern "C"
         }
     }
 
-    vc get_path(int x, int y, int tx, int ty, pair <int, int> shp)
+    vc get_path(int bx, int by, int tx, int ty)
     {
-        int xn, yn;
+        ld vx, vy;
+        vx = tx - bx;
+        vy = ty - by;
+        ld len = sqrt(vx * vx + vy * vy);
+        vx /= len;
+        vy /= len;
+        int x = bx, y = by;
         vc ans;
-        ld d, prevd = 1e9;
-        vvi vis(shp.first, vi(shp.second, 0));
-        while (1)
+        cout << bx << ' ' << by << ' ' << vx << ' ' << vy << ' ' << tx << ' ' << ty << ' ' << ((ld) (x - bx)) * vy << '\n';
+        int i = 0;
+        while (((ld) (x - bx)) * vy >= 0 && !(x == tx && y == ty))
         {
-            for (pair <int, int> val : var)
-            {
-                xn = x + val.first, yn = y + val.second;
-                if (!in_image(xn, yn, shp) || vis[xn][yn]) continue;
-                if (xn == tx && yn == ty)
-                {
-                    ans.push_back({tx, ty});
-                    return ans;
-                }
-                d = sqrt((ld)((x - tx) * (x - tx) + (y - ty) * (y - ty)));
-                if (d < prevd)
-                {
-                    x = xn; y = yn;
-                    vis[x][y] = 1;
-                    prevd = d;
-                    ans.push_back({x, y});
-                    break;
-                }
-            }
+            cout << bx << ' ' << by << ' ' << x << ' ' << y << ' ' << tx << ' ' << ty << ' ' << ((ld) (x - bx)) * vy << '\n';
+            ans.push_back({x, y});
+            x = ceil((ld) (bx + i * vx));
+            y = ceil((ld) (by + i * vy));
+            i++;
         }
+        return ans;
     }
 
-    vc get_trajectory(vvi bimage, int d, int sx, int sy)
+
+    void save(vvi &image)
+    {
+        int x, y, r, g, b;
+        int w = image.size(), h = image[0].size();
+        FILE *f;
+        unsigned char *img = NULL;
+        int filesize = 54 + 3 * w * h;  //w is your image width, h is image height, both int
+
+        img = (unsigned char *)malloc(3 * w * h);
+        memset(img, 0, 3 * w * h);
+
+        for(int i = 0; i < w; i++)
+        {
+            for(int j = 0; j < h; j++)
+            {
+                x = i; y = (h - 1) - j;
+                r = image[i][j] * 255;
+                g = image[i][j] * 255;
+                b = image[i][j] * 255;
+                if (r > 255) r = 255;
+                if (g > 255) g = 255;
+                if (b > 255) b = 255;
+                img[(x + y * w) * 3 + 2] = (unsigned char)(r);
+                img[(x + y * w) * 3 + 1] = (unsigned char)(g);
+                img[(x + y * w) * 3 + 0] = (unsigned char)(b);
+            }
+        }
+
+        unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
+        unsigned char bmpinfoheader[40] = {40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0};
+        unsigned char bmppad[3] = {0,0,0};
+
+        bmpfileheader[ 2] = (unsigned char)(filesize    );
+        bmpfileheader[ 3] = (unsigned char)(filesize>> 8);
+        bmpfileheader[ 4] = (unsigned char)(filesize>>16);
+        bmpfileheader[ 5] = (unsigned char)(filesize>>24);
+
+        bmpinfoheader[ 4] = (unsigned char)(       w    );
+        bmpinfoheader[ 5] = (unsigned char)(       w>> 8);
+        bmpinfoheader[ 6] = (unsigned char)(       w>>16);
+        bmpinfoheader[ 7] = (unsigned char)(       w>>24);
+        bmpinfoheader[ 8] = (unsigned char)(       h    );
+        bmpinfoheader[ 9] = (unsigned char)(       h>> 8);
+        bmpinfoheader[10] = (unsigned char)(       h>>16);
+        bmpinfoheader[11] = (unsigned char)(       h>>24);
+
+        f = fopen("img.bmp", "wb");
+        fwrite(bmpfileheader, 1, 14, f);
+        fwrite(bmpinfoheader, 1, 40, f);
+        for(int i = 0; i < h; i++)
+        {
+            fwrite(img + (w * (h - i - 1) * 3), 3, w, f);
+            fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, f);
+        }
+
+        free(img);
+        fclose(f);
+    }
+
+    void get_trajectory(vvi &bimage, int d, int sx, int sy, vc &ans)
     {
         vc deltas2, mxdeltas, deltas;
         get_deltas(deltas2, mxdeltas, deltas, d);
 
-        vc ans;
-
         vvi filter = bimage;
 
-        int x, y, xn, yn, dtx, dty, xp, yp, it, xnn, ynn;
+        int x, y, xn, yn, xp, yp, it, xnn, ynn;
         bool change;
         
         pair <int, int> res = random_point(bimage, mxdeltas);
@@ -339,6 +389,7 @@ extern "C"
         yp = 0;
         it = 0;
 
+        vc path;
         pair <int, int> shp = {bimage.size(), bimage[0].size()};
 
         while (neqvii(bimage, 0))
@@ -346,8 +397,7 @@ extern "C"
             change = 0;
             for (pair <int, int> dt : deltas2)
             {
-                dtx = dt.first; dty = dt.second;
-                xn = x + dtx; yn = y + dty;
+                xn = x + dt.first; yn = y + dt.second;
                 if (in_image(xn, yn, shp) && bimage[xn][yn] && check_near(xn, yn, mxdeltas, bimage))
                 {
                     x = xn; y = yn;
@@ -371,9 +421,11 @@ extern "C"
 
             if (it)
             {
-                for (pair <int, int> xyn : get_path(xp, yp, x, y, shp))
+                path = get_path(xp, yp, x, y);
+                for (pair <int, int> xyn : path)
                 {
                     xn = xyn.first, yn = xyn.second;
+                    cout << xn << ' ' << yn << ' ' << x << ' ' << y << '\n';
                     for (pair <int, int> dt : deltas)
                     {
                         xnn = xn + dt.first; ynn = yn + dt.second;
@@ -391,12 +443,16 @@ extern "C"
             }
             xp = x;
             yp = y;
+            if (it % 100 == 0) 
+            {
+                save(bimage);
+                sleep(1);
+            }
             it++;
         }
-        return ans;
     }
 
-    bool check_poly(vc cords, ld a, ld b)
+    bool check_poly(vc &cords, ld a, ld b)
     {
         ld s = 0;
         for (pair <int, int> pnt : cords)
@@ -404,14 +460,14 @@ extern "C"
         return s < 5;
     }
 
-    ld mean(vi vec)
+    ld mean(vi &vec)
     {
         ld s = 0;
         for (int e : vec) s += e;
         return s / vec.size();
     }
 
-    ld variance(vi lst, ld mn)
+    ld variance(vi &lst, ld mn)
     {
         ld s = 0;
         for (int e : lst)
@@ -419,7 +475,7 @@ extern "C"
         return s / lst.size();
     }
 
-    ld variancexy(vi x, vi y, ld xm, ld ym)
+    ld variancexy(vi &x, vi &y, ld xm, ld ym)
     {
         ld s = 0;
         for (int i = 0; i < x.size(); i++)
@@ -427,7 +483,7 @@ extern "C"
         return s / x.size();
     }
 
-    pair <bool, pair <ld, ld>> get_line(vc pnts)
+    pair <bool, pair <ld, ld>> get_line(vc &pnts)
     {
         vi x, y;
         for (pair <int, int> pnt : pnts)
@@ -440,19 +496,18 @@ extern "C"
         ld sx = variance(x, xm), sy = variance(y, ym);
         ld sxy = variancexy(x, y, xm, ym);
 
-        cout << sx << ' ' << sy << ' ' << sxy << '\n';
         if (sxy == 0) return {0, {0, 0}};
         ld a = (sy - sx + sqrt((sy - sx) * (sy - sx) + 4 * sxy * sxy)) / (2 * sxy);
         ld b = ym - a * xm;
         return {1, {a, b}};
     }
 
-    vc approximate(vc cords)
+    vc approximate(vc &cords)
     {
         int i = 0; 
         vc ncords;
         vc now;
-        ld a = 1, b = 0, an, bn, cn;
+        ld an, bn;
         while (i < cords.size())
         {
             now.push_back(cords[i]);
@@ -461,20 +516,102 @@ extern "C"
                 i++;
                 continue;
             }
+
+            pair <bool, pair <ld, ld>> res = get_line(now);
+            if (res.first)
+            {
+                an = res.second.first;
+                bn = res.second.second;
+            }
+            else
+            {
+                i++;
+                continue;
+            }
+
+            if (!check_poly(now, an, bn))
+            {
+                ncords.push_back(now[0]);
+                ncords.push_back(now[now.size() - 2]);
+                now = {cords[i]};
+            }
+            i++;
+        }
+        if (!now.empty())
+        {
+            ncords.push_back(now[0]);
+            if (now.size() > 1)
+                ncords.push_back(now.back());
+        }
+        return ncords;
+    }
+
+    void remove_dublicates(vc &x)
+    {
+        int i = 0; 
+        while (i < x.size())
+        {
+            while (x.size() > 1 && i < x.size() && x[(i + 1) % x.size()] == x[i])
+                x.erase(x.begin() + i);
+            i++;
         }
     }
 
-    vvi pointer2vector2d(int *pointer, size_t n, size_t m)
+    void pointer2vvvd(ld* pointer, size_t x, size_t y, size_t z, vvvd &ans)
     {
-        vvi ans(n, vi(m));
+        for (int a = 0; a < x; a++)
+        {
+            for (int b = 0; b < y; b++)
+            {
+                for (int c = 0; c < z; c++) ans[a][b][c] = pointer[a * y + b * z + c];
+            }
+        }
+    }
+
+    void vvvd2pointer(vvvd &vec, ld* pointer)
+    {
+        for (int a = 0; a < vec.size(); a++)
+        {
+            for (int b = 0; b < vec[0].size(); b++)
+            {
+                for (int c = 0; c < vec[0][0].size(); c++) pointer[a * vec.size() + b * vec[0].size()] = vec[a][b][c];
+            }
+        }
+    }
+
+    void pointer2vvd(ld* pointer, size_t n, size_t m, vvd &ans)
+    {
+        for (int x = 0; x < n; x++)
+        {
+            for (int y = 0; y < m; y++) ans[x][y] = pointer[x * m + y];
+        }
+    }
+
+    void vvd2pointer(vvd &vec, ld* ans)
+    {
+        for (int x = 0; x < vec.size(); x++)
+        {
+            for (int y = 0; y < vec[0].size(); y++) ans[x * vec[0].size() + y] = vec[x][y];
+        }
+    }
+
+    void pointer2vvi(int *pointer, size_t n, size_t m, vvi &ans)
+    {
         for (int x = 0; x < n; x++)
         {
             for (int y = 0; y < m; y++) ans[x][y] = pointer[x * n + y];
         }
-        return ans;
     }
 
-    void pointer2vectorpair(int *pointer, size_t n, vc &ans)
+    void vvi2pointer(vvi &vec, int* pointer)
+    {
+        for (int x = 0; x < vec.size(); x++)
+        {
+            for (int y = 0; y < vec[0].size(); y++) pointer[x * vec[0].size() + y] = vec[x][y];
+        }
+    }
+
+    void pointer2vc(int *pointer, size_t n, vc &ans)
     {
         for (int i = 0; i < n; i++) 
         {
@@ -483,13 +620,50 @@ extern "C"
         }
     }
 
-    void test_approximation(int* pointer, size_t n, ld* a, ld* b)
+    int* vc2pointer(vc &vec)
     {
-        vc cords(n);
-        pointer2vectorpair(pointer, n, cords);
-        pair <bool, pair <ld, ld>> res = get_line(cords);
-        cout << "got line" << '\n';
-        *a = res.second.first;
-        *b = res.second.second;
+        int* ans = new int[vec.size() * 2 + 1];
+        ans[0] = vec.size();
+        for (int i = 0; i < vec.size(); i++)
+        {
+            ans[i * 2 + 1] = vec[i].first;
+            ans[i * 2 + 2] = vec[i].second;
+        }
+        return ans;
+    }
+
+    int* pcompute_image(int* pointer, size_t n, size_t m, int d, ld sx, ld sy)
+    {
+        vvi image(n, vi(m));
+        pointer2vvi(pointer, n, m, image);
+        vc trajectory;
+        get_trajectory(image, d, sx, sy, trajectory);
+        // trajectory = approximate(trajectory);
+        return vc2pointer(trajectory);
+    }
+
+    void pmark(ld* imgp, ld* clrsp, size_t imgh, size_t imgw, size_t clrsh, size_t clrsw)
+    {
+        vvd img(imgh, vd(imgw)), clrs(clrsh, vd(clrsw));
+        pointer2vvd(imgp, imgh, imgw, img);
+        pointer2vvd(clrsp, clrsh, clrsw, clrs);
+        img = cmark(img, clrs);
+        vvd2pointer(img, imgp);
+    }
+
+    void pfill(int x, int y, int* visp, ld* imgp, size_t imgh, size_t imgw, size_t chnls)
+    {
+        vvi vis(imgh, vi(imgw));
+        vvvd img(imgh, vvd(imgw, vd(chnls)));
+        pointer2vvvd(imgp, imgh, imgw, chnls, img);
+        pointer2vvi(visp, imgh, imgw, vis);
+        cfill(x, y, vis, img);
+        vvvd2pointer(img, imgp);
+        vvi2pointer(vis, visp);
+    }
+
+    void cleanup(int* pntr)
+    {
+        delete[] pntr;
     }
 }   
