@@ -5,6 +5,7 @@
 #include <fstream>
 #include <memory.h>
 #include <unistd.h>
+#include <iomanip>
 
 using namespace std;
 
@@ -289,26 +290,38 @@ extern "C"
         }
     }
 
-    vc get_path(int bx, int by, int tx, int ty)
+    vc get_path(ld bx, ld by, ld tx, ld ty)
     {
+        vc ans;
         ld vx, vy;
         vx = tx - bx;
         vy = ty - by;
         ld len = sqrt(vx * vx + vy * vy);
+        if (len == 0)
+        {
+            ans.push_back({bx, by});
+            return ans;
+        }
         vx /= len;
         vy /= len;
-        int x = bx, y = by;
-        vc ans;
-        cout << bx << ' ' << by << ' ' << vx << ' ' << vy << ' ' << tx << ' ' << ty << ' ' << ((ld) (x - bx)) * vy << '\n';
-        int i = 0;
-        while (((ld) (x - bx)) * vy >= 0 && !(x == tx && y == ty))
+        // cout << bx << ' ' << by << ' ' << vx << ' ' << vy << ' ' << tx << ' ' << ty << '\n';
+        ld x = bx, y = by;
+        ld i = 0;
+        bool cond = 1;
+        while (cond)
         {
-            cout << bx << ' ' << by << ' ' << x << ' ' << y << ' ' << tx << ' ' << ty << ' ' << ((ld) (x - bx)) * vy << '\n';
+            // cout << bx << ' ' << by << ' ' << x << ' ' << y << ' ' << tx << ' ' << ty << '\n';
             ans.push_back({x, y});
-            x = ceil((ld) (bx + i * vx));
-            y = ceil((ld) (by + i * vy));
+            x = bx + i * vx;
+            y = by + i * vy;
             i++;
+            cond = !((abs(x - tx) < 1e-6) && (abs(y - ty) < 1e-6));
+            // cout << x - tx << ' ' << y - ty << '\n';
+            if (tx - x != 0) cond = cond && ((x - bx) / (tx - x) >= 0);
+            if (ty - y != 0) cond = cond && ((y - by) / (ty - y) >= 0);
+            // cout << cond << '\n';
         }
+        ans.push_back({tx, ty});
         return ans;
     }
 
@@ -419,19 +432,25 @@ extern "C"
                 ans.push_back({x + sx, y + sy});
             }
 
+            bimage[x][y] = 0;
             if (it)
             {
+                // cout << xp << ' ' << yp << ' ' << x << ' ' << y << '\n';
                 path = get_path(xp, yp, x, y);
+                // cout << "------------------------------------------------\n";
                 for (pair <int, int> xyn : path)
                 {
                     xn = xyn.first, yn = xyn.second;
-                    cout << xn << ' ' << yn << ' ' << x << ' ' << y << '\n';
+                    
+                    // cout << xn << ' ' << yn << ' ' << x << ' ' << y << '\n';
+                    
                     for (pair <int, int> dt : deltas)
                     {
                         xnn = xn + dt.first; ynn = yn + dt.second;
                         if (in_image(xnn, ynn, shp)) bimage[xnn][ynn] = 0;
                     }
                 }
+                // cout << "------------------------------------------------\n";
             }
             else
             {
@@ -638,7 +657,7 @@ extern "C"
         pointer2vvi(pointer, n, m, image);
         vc trajectory;
         get_trajectory(image, d, sx, sy, trajectory);
-        // trajectory = approximate(trajectory);
+        trajectory = approximate(trajectory);
         return vc2pointer(trajectory);
     }
 

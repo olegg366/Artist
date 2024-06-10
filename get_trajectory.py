@@ -60,7 +60,7 @@ def compute_image(img, d, sx, sy):
     ans = []
     sz = res[0]
     for i in range(sz):
-        ans[i].append([res[i * 2 + 1], res[i * 2 + 2]])
+        ans.append([res[i * 2 + 1], res[i * 2 + 2]])
 
     lib.cleanup(res)
     return ans
@@ -118,6 +118,8 @@ def get_colors(img):
             
             img[f] = color
             
+    img = hsv2rgb(img)
+            
     f = (img == 0).sum(axis=2) == 3
     f = ~f
     lb = label(~f)
@@ -146,15 +148,16 @@ def draw_img(img: Image):
         for reg in rgs:
             idx += 1
             regimg = reg.image
-            trajectory = compute_image(regimg, 10, *reg.bbox[:2])
-            trajectory = np.array(trajectory)
-            ax = plt.subplot()
-            ax.imshow(img)
-            ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
-            plt.show()
-            # all.append('down')
-            # all.extend(cords)
-            # all.append('up')
+            cords = compute_image(regimg, 20, *reg.bbox[:2])
+            # trajectory = np.array(cords)
+            # f, ax = plt.subplots()
+            # ax.imshow(img)
+            # ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
+            # f.savefig('images/trajectory.png')
+            # plt.show()
+            all.append('down')
+            all.extend(cords)
+            all.append('up')
             # trajectory.extend(cords)
     print('got trajectory')
     # trajectory = np.array(trajectory)
@@ -167,13 +170,12 @@ def draw_img(img: Image):
     with open('last_trajectory.lst', 'wb') as f:
         pickle.dump(all, f)
     
-    # print('sending gcode...')
-    # gcode = get_gcode(all)
-    # send_gcode(gcode)
-    # print('sent gcode')
-    # print(remove_intersections([[-5, 1], [-3, 4], [3, 5], [-1, 6], [2, 3], [1, 0]]))
+    print('sending gcode...')
+    gcode = get_gcode(all)
+    send_gcode(gcode)
+    print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/colors_square.png')
+    img = imread('images/colors_circle.png')
     draw_img(img)
-    sleep(10000)
+    # sleep(10000)

@@ -1,5 +1,8 @@
 import serial
 from time import sleep
+import os
+
+os.system('echo Dragon2009 | sudo -S chmod 666 /dev/ttyACM0')
 
 DOWN = 2000
 UP = 1000
