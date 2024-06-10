@@ -24,7 +24,7 @@ import pickle
 
 from serial_control import get_gcode, send_gcode
 
-lib = c.CDLL('trajectory.so')
+lib = c.CDLL('/home/olegg/Artist/trajectory.so')
 
 DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
                                    ndim=2,

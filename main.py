@@ -12,7 +12,7 @@ from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCM
 
 from skimage.transform import resize
 
-from utilites import draw_landmarks_on_image, draw, get_landmarks
+from utilites import draw_landmarks_on_image, draw, get_landmarks, dist
 from interface import App
 from google_speech import recognize
 from get_trajectory import draw_img
@@ -80,8 +80,11 @@ if __name__ == '__main__':
     # счетчик жестов подряд
     cnt = {
         'clean': 0,
-        'end': 0
+        'end': 0,
+        'drag': 0
     }
+    
+    last_cords = []
 
     #индикатор того, рисуем мы или нет 
     flag = False
@@ -97,12 +100,25 @@ if __name__ == '__main__':
             
             detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
             if detection.hand_landmarks:
-                lmks = get_landmarks(detection, img.shape)
-                x, y = lmks[0][8]
-                inp = {'conv1d_4_input': tf.convert_to_tensor(lmks)}
-                pred = trt_func(**inp)['dense_5']
-                gt = classes[np.argmax(pred[0])]
-                flagn, t, cnt, end = draw(gt, t, cnt, flag, x, y, end)
+                lmks = get_landmarks(detection)
+                x, y = lmks[0, 8, :2]
+                x *= img.shape[0]
+                y *= img.shape[1]
+                last_cords.append([x, y])
+                if len(last_cords) > 20:
+                    last_cords.pop(0)
+                if len(last_cords) < 6:
+                    timestamp += 1
+                    continue
+                print(dist(lmks[0, 4], lmks[0, 8]))
+                if dist(lmks[0, 4], lmks[0, 8]) < 0.1:
+                    gt = 'Click'
+                else:
+                    inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
+                    pred = trt_func(**inp)['dense_5']
+                    gt = classes[np.argmax(pred[0])]
+                print(gt)
+                flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end)
                 if flagn != flag and not end:
                     app.change_status()
                 flag = flagn
@@ -111,7 +127,8 @@ if __name__ == '__main__':
                     end = False
                     cnt = {
                         'clean': 0,
-                        'end': 0
+                        'end': 0,
+                        'drag': 0
                     }
                     t = {
                         'paint' : 0,

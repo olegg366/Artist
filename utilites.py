@@ -2,7 +2,7 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import mediapipe as mp
 
-import pyautogui as pg
+import mouse as ms
 
 from matplotlib import pyplot as plt
 from time import time as tt
@@ -73,22 +73,36 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
   return annotated_image
 
-def draw(tp, time, cnt, flag, x, y, endflag):
-    global app
-    if tp == 'Pointing_Up' and flag:
+def draw(tp, time, cnt, flag, cords, endflag):
+    if tp == 'Click':
+        cnt['clean'] = 0
+        cnt['end'] = 0
+        cnt['drag'] += 1
+        xp, yp, x, y = *cords[-1], *cords[-5]
+        x = 640 - x
+        x = arduino_map(x, 0, 640, 0, 1920)
+        y = arduino_map(y, 0, 480, 0, 1080)
+        if flag and cnt['drag'] >= 3:
+            ms.drag(xp, yp, x, y)
+        else:
+            ms.move(x, y)
+            ms.click('left')
+    elif tp == 'Pointing_Up':
+        x, y = cords[-1]
         x = 640 - x
         x = arduino_map(x, 0, 640, 75, 1920)
         y = arduino_map(y, 0, 480, 65, 1080)
         cnt['clean'] = 0
         cnt['end'] = 0
-        pg.dragTo(x, y)
+        cnt['drag'] = 0
+        ms.move(x, y)
     elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
         cnt['end'] = 0
         if cnt['clean'] > 20:
-            pg.moveTo(155, 140)
-            pg.click()
+            ms.move(155, 140)
+            ms.click('left')
 
-            pg.moveTo(75, 216)
+            ms.move(75, 216)
             time['clean'] = tt()
             cnt['clean'] = 0
         else:
@@ -102,12 +116,12 @@ def draw(tp, time, cnt, flag, x, y, endflag):
                     cnt['end'] = 0
                     time['start'] = tt()
                 else:
-                    pg.moveTo(638, 138)
-                    pg.click()
-                    endflag = True
+                    ms.move(638, 138)
+                    ms.click('left')
+                    # endflag = True
                     time['start'] = tt()
                     cnt['end'] = 0
-                    flag = False
+                    # flag = False
             else:
                 cnt['end'] += 1
         else:
@@ -115,14 +129,17 @@ def draw(tp, time, cnt, flag, x, y, endflag):
         
     return flag, time, cnt, endflag
   
-def get_landmarks(detection_result, shp):
+def get_landmarks(detection_result):
     hand_landmarks_list = detection_result.hand_landmarks
     res = []
 
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
-        res.append([[l.x * shp[0], l.y * shp[1]] for l in hand_landmarks])
+        res.append([[l.x, l.y, l.z] for l in hand_landmarks])
     return np.array(res, dtype='float32')
 
 def arduino_map(x, in_min, in_max, out_min, out_max):
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+
+def dist(a, b):
+    return ((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2) ** 0.5
