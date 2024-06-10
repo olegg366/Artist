@@ -3,16 +3,15 @@ from utilites import draw_landmarks_on_image
 import numpy as np
 import cv2
 
-def get_landmarks(detection_result, shp):
+def get_landmarks(detection_result):
     hand_landmarks_list = detection_result.hand_landmarks
     res = []
-    h, w = shp[:2]
+    # h, w = shp[:2]
 
     # Loop through the detected hands to visualize.
     for idx in range(len(hand_landmarks_list)):
         hand_landmarks = hand_landmarks_list[idx]
         res.append([[l.x, l.y] for l in hand_landmarks])
-        # res.append([i for l in hand_landmarks for i in [l.x, l.y]])
 
     return res
 
@@ -49,11 +48,11 @@ with HandLandmarker.create_from_options(options) as landmarker:
         mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
         detection = landmarker.detect(mp_image)
 
-        img, x, y = draw_landmarks_on_image(img, detection)
+        img = draw_landmarks_on_image(img, detection)
         # cv2.imshow('img', img)
 
         if detection.hand_landmarks:
-            res = get_landmarks(detection, img.shape)
+            res = get_landmarks(detection)
             ans.append(res)
         # cv2.waitKey(1)
 for i in range(len(ds)):
