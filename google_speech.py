@@ -1,10 +1,12 @@
 import speech_recognition as sr
 from googletrans import Translator
     
-def recognize():
+def recognize(app):
     r = sr.Recognizer()
     with sr.Microphone() as source:
         print("Say something!")
+        app.print_text('Говорите...')
+        app.update()
         r.adjust_for_ambient_noise(source)
         audio = r.listen(source, phrase_time_limit=10)
     try:

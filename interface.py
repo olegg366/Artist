@@ -132,15 +132,15 @@ class App():
         
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
-        self.fr_wd_set.columnconfigure(0, minsize=15)
+        # self.fr_wd_set.columnconfigure(0, minsize=15)
         for i in range(2, 15, 2):
-            self.fr_wd_set.rowconfigure(i // 2, minsize=20)
-            cv = tk.Frame(self.fr_wd_set, height=40, width=200, borderwidth=2)
-            line = tk.Frame(cv, height=i, width=180, bg=self.line_options['fill'])
-            line.bind('<Button-1>', lambda x, k = i: self.change_width(k))
-            line.pack()
+            # self.fr_wd_set.rowconfigure(i // 2, minsize=50)
+            cv = tk.Frame(self.fr_wd_set, width=self.bt_set_wd.winfo_width() - 10, height=40, relief='groove', border=5)
+            line = tk.Frame(cv, height=i, width=self.bt_set_wd.winfo_width() - 30, bg=self.line_options['fill'])
             cv.bind('<Button-1>', lambda x, k = i: self.change_width(k))
             cv.grid(row=i // 2, column=0)
+            line.bind('<Button-1>', lambda x, k = i: self.change_width(k))
+            line.pack(padx=10, pady=10)
         self.fr_wd_set.place(x=self.bt_del.winfo_width() + self.bt_set_clr.winfo_width(), 
                              y=self.fr_ctrl.winfo_height())
 

@@ -43,7 +43,7 @@ try:
 
             if detection.hand_landmarks:
                 res = get_landmarks(detection)[0]
-                ans.append(dist(res[4], res[8]))
+                ans.append(dist(res[4], res[8]) / dist(res[0], res[8]))
             cv2.waitKey(1)
 except KeyboardInterrupt:
     pass
@@ -63,10 +63,10 @@ plt.rcParams.update({
     'xtick.bottom': True,
     'ytick.labelleft': True,
     'ytick.left': True,
-    'xtick.labeltop': True,
-    'xtick.top': True,
-    'ytick.labelright': True,
-    'ytick.right': True
+    # 'xtick.labeltop': True,
+    # 'xtick.top': True,
+    # 'ytick.labelright': True,
+    # 'ytick.right': True
 })
 plt.plot(ans, linewidth=2)
 

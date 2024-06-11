@@ -2,6 +2,7 @@ from mediapipe import solutions
 from mediapipe.framework.formats import landmark_pb2
 import mediapipe as mp
 
+import os
 import mouse as ms
 
 from matplotlib import pyplot as plt
@@ -73,34 +74,42 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
   return annotated_image
 
+def drag(x, y):
+    os.system('xdotool mousedown 1')
+    ms.move(x, y)
+    os.system('xdotool mouseup 1')
+    
+def click():
+    os.system('xdotool click 1')
+
 def draw(tp, time, cnt, flag, cords, endflag):
-    if tp == 'Click':
+    if tp == 'Click' and flag:
         cnt['clean'] = 0
         cnt['end'] = 0
         cnt['drag'] += 1
-        xp, yp, x, y = *cords[-1], *cords[-5]
+        x, y = cords[-5]
         x = 640 - x
         x = arduino_map(x, 0, 640, 0, 1920)
         y = arduino_map(y, 0, 480, 0, 1080)
         if flag and cnt['drag'] >= 3:
-            ms.drag(xp, yp, x, y)
+            drag(x, y)
         else:
             ms.move(x, y)
-            ms.click('left')
-    elif tp == 'Pointing_Up':
+            click()
+    elif tp == 'Pointing_Up' or (tp == 'Click' and not flag):
         x, y = cords[-1]
         x = 640 - x
-        x = arduino_map(x, 0, 640, 75, 1920)
-        y = arduino_map(y, 0, 480, 65, 1080)
+        x = arduino_map(x, 0, 640, 0, 1920)
+        y = arduino_map(y, 0, 480, 0, 1080)
         cnt['clean'] = 0
         cnt['end'] = 0
         cnt['drag'] = 0
         ms.move(x, y)
     elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
         cnt['end'] = 0
-        if cnt['clean'] > 20:
+        if cnt['clean'] > 10:
             ms.move(155, 140)
-            ms.click('left')
+            click()
 
             ms.move(75, 216)
             time['clean'] = tt()
@@ -116,12 +125,12 @@ def draw(tp, time, cnt, flag, cords, endflag):
                     cnt['end'] = 0
                     time['start'] = tt()
                 else:
-                    ms.move(638, 138)
-                    ms.click('left')
-                    # endflag = True
+                    # ms.move(638, 138)
+                    # click()
+                    endflag = True
                     time['start'] = tt()
                     cnt['end'] = 0
-                    # flag = False
+                    flag = False
             else:
                 cnt['end'] += 1
         else:

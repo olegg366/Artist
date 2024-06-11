@@ -19,6 +19,10 @@ from get_trajectory import draw_img
 
 from time import sleep
 
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
+
 pg.FAILSAFE = False
 device = cuda.get_current_device()
     
@@ -28,11 +32,6 @@ def get_func_from_saved_model(saved_model_dir):
    graph_func = saved_model_loaded.signatures[
        signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
    return graph_func, saved_model_loaded
-
-def run_app():
-    global app
-    while True:
-        app.update()
 
 print('Setting up widget...')
 app = App()
@@ -59,7 +58,7 @@ if __name__ == '__main__':
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
     options = HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
+        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.CPU),
         running_mode=VisionRunningMode.VIDEO)
     print('Succesfully set up hand landmarker.')
 
@@ -102,22 +101,22 @@ if __name__ == '__main__':
             if detection.hand_landmarks:
                 lmks = get_landmarks(detection)
                 x, y = lmks[0, 8, :2]
-                x *= img.shape[0]
-                y *= img.shape[1]
+                x *= img.shape[1]
+                y *= img.shape[0]
                 last_cords.append([x, y])
                 if len(last_cords) > 20:
                     last_cords.pop(0)
                 if len(last_cords) < 6:
                     timestamp += 1
                     continue
-                print(dist(lmks[0, 4], lmks[0, 8]))
-                if dist(lmks[0, 4], lmks[0, 8]) < 0.1:
+                # print(dist(lmks[0, 4], lmks[0, 8]) / dist(lmks[0, 0], lmks[0, 8]))
+                if dist(lmks[0, 4], lmks[0, 8]) / dist(lmks[0, 0], lmks[0, 8]) <= 0.2:
                     gt = 'Click'
                 else:
                     inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
                     pred = trt_func(**inp)['dense_5']
                     gt = classes[np.argmax(pred[0])]
-                print(gt)
+                # print(gt)
                 flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end)
                 if flagn != flag and not end:
                     app.change_status()
@@ -136,34 +135,32 @@ if __name__ == '__main__':
                         'start' : 0
                     }
                     img = app.image
-                    # del model
-                    device.reset()
+                    del trt_func
+                    tf.keras.backend.clear_session()
                     sleep(2)
                     print('Setting up stable diffusion...')
                     img.save('scribble.png')
-                    app.print_text('Говорите...')
-                    app.update()
-                    prompt, rus = recognize()
-                    app.print_text('Вы сказали ' + rus)
+                    prompt, rus = recognize(app)
+                    app.print_text('Вы сказали: ' + rus)
                     app.change_status()
                     app.update()
                     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                                                torch_dtype=torch.float32).to('cuda')
+                                                                torch_dtype=torch.float32).to('cuda')   
                     pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
                                                                             controlnet=controlnet, 
                                                                             safety_checker=None, 
                                                                             torch_dtype=torch.float32).to('cuda')
                     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-                    pipe.enable_xformers_memory_efficient_attention()
-                    pipe.enable_model_cpu_offload()
+                    # pipe.enable_xformers_memory_efficient_attention()
+                    # pipe.enable_model_cpu_offload()
                     print('Succesfully set up stable diffusion.')
                     img = pipe(prompt + ", beautiful", 
                         img, 
                         # guess_mode=True,
                         # guidance_scale=3.0,
                         negative_prompt="bad anatomy, low quality, worst quality", 
-                        num_inference_steps=10, 
-                        height=320, width=320).images[0]
+                        num_inference_steps=50, 
+                        height=512, width=512).images[0]
                     del pipe
                     device.reset()
                     img.save('now.png')

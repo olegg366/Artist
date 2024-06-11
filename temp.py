@@ -1,4 +1,4 @@
+import os
 import mouse as ms
-import pyautogui as pg
 
-ms.click('left')
+ms.move(0, 0)
