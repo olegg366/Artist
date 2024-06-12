@@ -1,3 +1,5 @@
+# distutils: language=c++
+
 cimport numpy as np
 import math
 import numpy as pnp
@@ -157,7 +159,7 @@ cdef bint check_ray(point a, point b, point p):
 cdef bint check_seg(point a, point b, point p):
     return check_ray(a, b, p) and check_ray(b, a, p)
 
-cdef bint in_polygon(a, list p):
+cdef bint in_polygon(point a, list p):
     cdef double angle = 0
     cdef int j
     cdef point v1, v2
@@ -190,6 +192,12 @@ cdef tuple intersect_ray_line(double a, double b, double c, point p0, point d):
     else:
         return True, d * t + p0
 
+cdef point intersect_lines(double a1, double b1, double c1, double a2, double b2, double c2):
+    cdef double x, y
+    y = (c2 * a1 - a2 * c1) / (b1 * a2 - a1 * b2)
+    x = (c2 * b1 - c1 * b2) / (a1 * b2 - a2 * b1)
+    return point(x, y)
+
 cdef bint in_angle(point v1, point v2, point p):
     cdef double s = (-v1.x * (v2.y - v1.y) + v1.y * (v2.x - v1.x)) / 2
     if s < 0:
@@ -198,16 +206,24 @@ cdef bint in_angle(point v1, point v2, point p):
     cdef double s2 = (-v2.x * (p.y - v2.y) + v2.y * (p.x - v2.x)) / 2
     return s1 >= 0 and s2 <= 0
 
-cdef point bisec(point a, point b):
+cdef tuple bisec(point a, point b):
     cdef double angle = get_angle(a, b) / 2
-    cdef point p = rot(a, angle)
-    if not in_angle(a, b, p):
-        p = rot(a, -angle)
-    return p * (1 / p.len())
+    cdef point p1 = rot(a, angle)
+    cdef point p2 = vec(rot(a, angle), point(0, 0))
+    return p1 * (1 / p1.len()), p2 * (1 / p2.len())
 
 cdef tuple shift_segment(int a, int b, int c, int d, list pol, double s):
-    cdef point b1 = bisec(vec(pol[b], pol[a]), vec(pol[b], pol[c]))
-    cdef point b2 = bisec(vec(pol[c], pol[b]), vec(pol[c], pol[d]))
+    cdef point b1a, b1b, b2a, b2b, b1, b2
+    b1a, b1b = bisec(vec(pol[b], pol[a]), vec(pol[b], pol[c]))
+    b2a, b2b = bisec(vec(pol[c], pol[b]), vec(pol[c], pol[d]))
+    if in_polygon(pol[b] + b1a, pol):
+        b1 = b1a
+    else:
+        b1 = b1b
+    if in_polygon(pol[c] + b2a, pol):
+        b2 = b2a
+    else:
+        b2 = b2b
     cdef double pa, pb, pc
     pa, pb, pc = get_line(pol[b], pol[c])
     cdef point mv
@@ -225,13 +241,14 @@ cdef tuple shift_segment(int a, int b, int c, int d, list pol, double s):
     return pint1, pint2
 
 cdef list component_fill(double s, list cords, list holes, int level):
+    if level == 1:
+        return cords
     cdef list ans = []
     cdef point p1, p2
     cdef bint f 
     for i in range(1, len(cords)):
-        # if cords[i - 1] != cords[i] and cords[i] != cords[(i + 1) % len(cords)] and cords[(i + 1) % len(cords)] != cords[(i + 2) % len(cords)]:
         p1, p2 = shift_segment(i - 1, i, (i + 1) % len(cords), (i + 2) % len(cords), cords, s)
-        if i == 1 and in_polygon(p1, cords):
+        if not (p1 == point(-1, -1)) and in_polygon(p1, cords):
             f = True
             for j in range(len(holes)):
                 if in_polygon(p1, holes[j]):
@@ -239,7 +256,7 @@ cdef list component_fill(double s, list cords, list holes, int level):
                     break
             if f:
                 ans.append(p1)
-        if in_polygon(p2, cords):
+        if not (p2 == point(-1, -1)) and in_polygon(p2, cords):
             f = True
             for j in range(len(holes)):
                 if in_polygon(p2, holes[j]):
@@ -248,7 +265,9 @@ cdef list component_fill(double s, list cords, list holes, int level):
             if f:
                 ans.append(p2)
     if ans:
-        cords.extend(component_fill(s, ans, holes, level + 1))
+        ans = remove_dublicates(ans)
+        ans = remove_intersections(ans)
+        cords = component_fill(s, ans, holes, level + 1)
     return cords
 
 cpdef list compute_image(np.ndarray img, int d, double sx, double sy):
@@ -258,13 +277,12 @@ cpdef list compute_image(np.ndarray img, int d, double sx, double sy):
     cords = remove_dublicates(cords)
     cords = component_fill(d, cords, holes, 0)
     cords = [[a.x, a.y] for a in cords]
-    cords = remove_dublicates(cords)
     return cords
 
 cdef list remove_dublicates(list x):
     i = 0
     while i < len(x):
-        while i < len(x) and x[min(i + 1, len(x) - 1)] == x[i]:
+        while len(x) > 1 and i < len(x) and x[(i + 1) % len(x)] == x[i]:
             x.pop(i)
         i += 1
     return x 
@@ -292,37 +310,57 @@ cdef list approximate(list cords):
                 an = 0
             else: bn, an = res
         except pnp.linalg.LinAlgError:
-            ncords.extend((point(now[0].x, now[0].x * a + b), point(now[-2].x, now[-2].x * a + b)))
             i += 1
             continue
         if not check_poly(now, an, bn):
-            ncords.extend((point(now[0].x, now[0].x * a + b), point(now[-2].x, now[-2].x * a + b)))
-            now = [cords[i - 1], cords[i]]
+            ncords.extend((now[0], now[-2]))
+            now = [cords[i]]
         a = an
         b = bn
         i += 1
     if now:
-        ncords.extend([point(now[0].x, now[0].x * a + b), point(now[-1].x, now[-1].x * a + b)])
+        ncords.extend([now[0], now[-1]])
     return ncords
 
-cdef list remove_intersections(list line):
+cdef convert(list l):
+    ans = []
+    for elem in l:
+        ans.append(point(elem[0], elem[1]))
+    return ans
+    
+cpdef list remove_intersections(list line):
+    if line and not isinstance(line[0], point):
+        line = convert(line)
     cdef point intcord
     cdef bint flag 
     cdef int i = 0, j
-    while i < len(line) - 1:
-        j = i + 1
-        while j - i < 10 and j < len(line) - 1:
-            intcord, flag = intersect(line[i], line[i + 1], line[j], line[j + 1])
-            if flag:
-                if len(line) - (j - i) > j - i and j - i < 10:
-                    line = line[:i + 1] + [intcord] + line[j + 1:]
-                    j = i + 1
-                elif len(line) - (j - i) < 10:
-                    line = line[i + 1:j + 1]
-                    i = 0
-                    j = i
+    cdef int a, b, c, d
+    while i < len(line):
+        j = i + 2
+        while j < len(line):
+            a, b, c, d = i, (i + 1) % len(line), j, (j + 1) % len(line)
+            if a not in [b, c, d] and b not in [c, d] and c != d:
+                try:
+                    intcord, flag = intersect(line[a], line[b], line[c], line[d])
+                except ZeroDivisionError:
+                    print(i, j, len(line))
+                    print(line[a], line[b], line[c], line[d])
+                if flag:
+                    # if len(line) - (c - a) > c - a:
+                    #     line = line[:b] + [intcord] + line[d:]
+                    #     j = i + 1
+                    # elif len(line) - (c - a) < 5:
+                    #     line = line[b:d] + [intcord]
+                    #     i = 0
+                    #     j = i
+                    # else:
+                    line = line[:a + 1] + line[c:b + 1:-1] + line[d:]
+                    j = i + 3
             j += 1
+            # print(line)
         i += 1
+        print('end2')
+    print('end')
     return line
 
 cdef bint on_segment(point p, point q, point r): 
@@ -347,43 +385,39 @@ cdef list intersect(point p1, point q1, point p2, point q2):
     cdef point cord = point(0, 0)
 
     if ((o1 != o2) and (o3 != o4)): 
-        cord = get_intersection(p1, q1, p2, q2)
         if cord == p1 or cord == p2 or cord == q1 or cord == q2:
             return [cord, False]
+        cord = get_intersection(p1, q1, p2, q2)
         return [cord, True]
 
     if ((o1 == 0) and on_segment(p1, p2, q1)): 
-        cord = get_intersection(p1, q1, p2, q2)
         if cord == p1 or cord == p2 or cord == q1 or cord == q2:
             return [cord, False]
+        cord = get_intersection(p1, q1, p2, q2)
         return [cord, True]
 
     if ((o2 == 0) and on_segment(p1, q2, q1)): 
-        cord = get_intersection(p1, q1, p2, q2)
         if cord == p1 or cord == p2 or cord == q1 or cord == q2:
             return [cord, False]
+        cord = get_intersection(p1, q1, p2, q2)
         return [cord, True]
 
     if ((o3 == 0) and on_segment(p2, p1, q2)): 
-        cord = get_intersection(p1, q1, p2, q2)
         if cord == p1 or cord == p2 or cord == q1 or cord == q2:
             return [cord, False]
+        cord = get_intersection(p1, q1, p2, q2)
         return [cord, True]
 
     if ((o4 == 0) and on_segment(p2, q1, q2)): 
-        cord = get_intersection(p1, q1, p2, q2)
         if cord == p1 or cord == p2 or cord == q1 or cord == q2:
             return [cord, False]
+        cord = get_intersection(p1, q1, p2, q2)
         return [cord, True]
+
     return [cord, False]
 
 cdef point get_intersection(point p1, point q1, point p2, point q2):
-    cdef point xdiff = point(p1.x - q1.x, p2.x - q2.x)
-    cdef point ydiff = point(p1.y - q1.y, p2.y - q2.y)
-    cdef double divv = xdiff * ydiff
-    if divv == 0:
-        return p1
-    cdef point d = point(p1 * q1, p2 * q2)
-    cdef double x = (d * xdiff) / divv
-    cdef double y = (d * ydiff) / divv
-    return point(x, y)
+    cdef double a1, b1, c1, a2, b2, c2
+    a1, b1, c1 = get_line(p1, q1)
+    a2, b2, c2 = get_line(p2, q2)
+    return intersect_lines(a1, b1, c1, a2, b2, c2)

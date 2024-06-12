@@ -12,7 +12,8 @@ try:
             sleep(1000 / 1000000)
             ser.write(b'M42 P12 S0 T1\n')
         elif n == 'down':
-            for i in range(180):
+            cnt = 10
+            for i in range(cnt):
                 ser.write(b'M42 P12 S255 T1\n')
                 sleep(2000 / 1000000)
                 ser.write(b'M42 P12 S0 T1\n')
