@@ -3,7 +3,7 @@ from mediapipe.framework.formats import landmark_pb2
 import mediapipe as mp
 
 import os
-import mouse as ms
+import pyautogui as pg
 
 from matplotlib import pyplot as plt
 from time import time as tt
@@ -74,14 +74,6 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
   return annotated_image
 
-def drag(x, y):
-    os.system('xdotool mousedown 1')
-    ms.move(x, y)
-    os.system('xdotool mouseup 1')
-    
-def click():
-    os.system('xdotool click 1')
-
 def draw(tp, time, cnt, flag, cords, endflag):
     if tp == 'Click' and flag:
         cnt['clean'] = 0
@@ -92,10 +84,10 @@ def draw(tp, time, cnt, flag, cords, endflag):
         x = arduino_map(x, 0, 640, 0, 1920)
         y = arduino_map(y, 0, 480, 0, 1080)
         if flag and cnt['drag'] >= 3:
-            drag(x, y)
+            pg.dragTo(x, y, 0.0, _pause=False)
         else:
-            ms.move(x, y)
-            click()
+            pg.moveTo(x, y, 0.0, _pause=False)
+            pg.click()
     elif tp == 'Pointing_Up' or (tp == 'Click' and not flag):
         x, y = cords[-1]
         x = 640 - x
@@ -104,14 +96,14 @@ def draw(tp, time, cnt, flag, cords, endflag):
         cnt['clean'] = 0
         cnt['end'] = 0
         cnt['drag'] = 0
-        ms.move(x, y)
+        pg.moveTo(x, y, 0.0, _pause=False)
     elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
         cnt['end'] = 0
         if cnt['clean'] > 10:
-            ms.move(155, 140)
-            click()
+            pg.moveTo(155, 140)
+            pg.click()
 
-            ms.move(75, 216)
+            pg.moveTo(75, 216)
             time['clean'] = tt()
             cnt['clean'] = 0
         else:
@@ -126,7 +118,7 @@ def draw(tp, time, cnt, flag, cords, endflag):
                     time['start'] = tt()
                 else:
                     # ms.move(638, 138)
-                    # click()
+                    # pg.click()
                     endflag = True
                     time['start'] = tt()
                     cnt['end'] = 0

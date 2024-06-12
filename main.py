@@ -8,9 +8,14 @@ import tensorflow as tf
 from numba import cuda
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.saved_model import tag_constants
-from diffusers import StableDiffusionControlNetPipeline, ControlNetModel, UniPCMultistepScheduler
 
+import tomesd
+from DeepCache import DeepCacheSDHelper
+from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler, ControlNetModel
+
+from PIL import Image
 from skimage.transform import resize
+from skimage.filters import threshold_otsu
 
 from utilites import draw_landmarks_on_image, draw, get_landmarks, dist
 from interface import App
@@ -33,6 +38,46 @@ def get_func_from_saved_model(saved_model_dir):
        signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
    return graph_func, saved_model_loaded
 
+def generate(img, prompt):
+    image = np.array(img)
+    c = image[:, :, 0]
+    t = threshold_otsu(c)
+    img = Image.fromarray((image <= t).astype('uint8') * 255)
+    print('Setting up stable diffusion...')
+    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
+                                             torch_dtype=torch.float32)
+    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
+                                                            controlnet=controlnet,
+                                                            safety_checker=None, 
+                                                            use_safetensors=True,
+                                                            torch_dtype=torch.float32)
+    tomesd.apply_patch(pipe, ratio=0.5)
+
+    helper = DeepCacheSDHelper(pipe=pipe)
+    helper.set_params(
+        cache_interval=5,
+        cache_branch_id=0,
+    )
+    helper.enable()
+
+    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+
+    pipe.enable_sequential_cpu_offload()
+    pipe.enable_xformers_memory_efficient_attention()
+
+    pipe.unet.to(memory_format=torch.channels_last)
+    pipe.vae.to(memory_format=torch.channels_last)
+
+    generator = torch.manual_seed(2023)
+    
+    print('Succesfully set up stable diffusion.')
+
+    image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, generator=generator).images[0]
+    
+    del pipe
+    del controlnet
+    
+    return image
 print('Setting up widget...')
 app = App()
 print('Successfully set up widget.')
@@ -134,46 +179,26 @@ if __name__ == '__main__':
                         'clean' : 0,
                         'start' : 0
                     }
-                    img = app.image
+                    scribble = app.image
                     del trt_func
                     tf.keras.backend.clear_session()
                     sleep(2)
-                    print('Setting up stable diffusion...')
-                    img.save('scribble.png')
-                    prompt, rus = recognize(app)
-                    app.print_text('Вы сказали: ' + rus)
+                    scribble.save('images/scribble.png')
+                    # prompt, rus = recognize(app)
+                    # app.print_text('Вы сказали: ' + rus)
                     app.change_status()
                     app.update()
-                    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                                                torch_dtype=torch.float32).to('cuda')   
-                    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
-                                                                            controlnet=controlnet, 
-                                                                            safety_checker=None, 
-                                                                            torch_dtype=torch.float32).to('cuda')
-                    pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
-                    # pipe.enable_xformers_memory_efficient_attention()
-                    # pipe.enable_model_cpu_offload()
-                    print('Succesfully set up stable diffusion.')
-                    img = pipe(prompt + ", beautiful", 
-                        img, 
-                        # guess_mode=True,
-                        # guidance_scale=3.0,
-                        negative_prompt="bad anatomy, low quality, worst quality", 
-                        num_inference_steps=50, 
-                        height=512, width=512).images[0]
-                    del pipe
+                    gen = generate(scribble, "mountains, sketch art, one color")
                     device.reset()
-                    img.save('now.png')
-                    app.display(img)
-                    # draw_img(img)
+                    gen.save('images/now.png')
+                    app.display(gen)
+                    # draw_img(gen)
                     app.change_status()
                     app.update()
                     try:
                         sleep(6000)
                     except KeyboardInterrupt:
                         app.remove_img()
-                        # app.update()
-            # cv2.imshow('img', img)
             img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
             app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
             cv2.waitKey(1)
