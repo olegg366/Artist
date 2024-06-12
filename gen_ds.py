@@ -1,22 +1,10 @@
 import mediapipe as mp
-from utilites import draw_landmarks_on_image
+from utilites import draw_landmarks_on_image, get_landmarks, dist
 import numpy as np
 import cv2
+import matplotlib.pyplot as plt
 
-def get_landmarks(detection_result, shp):
-    hand_landmarks_list = detection_result.hand_landmarks
-    res = []
-    h, w = shp[:2]
-
-    # Loop through the detected hands to visualize.
-    for idx in range(len(hand_landmarks_list)):
-        hand_landmarks = hand_landmarks_list[idx]
-        res.append([[l.x, l.y] for l in hand_landmarks])
-        # res.append([i for l in hand_landmarks for i in [l.x, l.y]])
-
-    return res
-
-vid = cv2.VideoCapture('D:/Oleg/VIdeos/no.mp4')
+vid = cv2.VideoCapture(0)
 
 model_path = 'mlmodels/hand_landmarker.task'
 BaseOptions = mp.tasks.BaseOptions
@@ -25,43 +13,68 @@ HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 options = HandLandmarkerOptions(
-    base_options=BaseOptions(model_asset_path=model_path),
+    base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
     running_mode=VisionRunningMode.IMAGE)
 
 ans = []
 ds = []
 mxlen = 25
-with HandLandmarker.create_from_options(options) as landmarker:
-    while True:
-        res, img = vid.read()
-        if not res: 
-            print('end')
-            break
-        
-        if len(ans) == 25:
-            print(0)
-            if len(ans):
-                ds.append(ans)
-                mxlen = max(mxlen, len(ans))
-                ans = []
-                continue
+try:
+    with HandLandmarker.create_from_options(options) as landmarker:
+        while True:
+            res, img = vid.read()
+            if not res: 
+                print('end')
+                break
+            
+            # if img.mean() == 0:
+            #     print(0)
+            #     if len(ans):
+            #         ds.append(ans)
+            #         mxlen = max(mxlen, len(ans))
+            #         ans = []
+            #         continue
 
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-        detection = landmarker.detect(mp_image)
+            mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+            detection = landmarker.detect(mp_image)
 
-        img, x, y = draw_landmarks_on_image(img, detection)
-        # cv2.imshow('img', img)
+            img = draw_landmarks_on_image(img, detection)
+            cv2.imshow('img', img)
 
-        if detection.hand_landmarks:
-            res = get_landmarks(detection, img.shape)
-            ans.append(res)
-        # cv2.waitKey(1)
-for i in range(len(ds)):
-    if len(ds[i]) < mxlen:
-        ln = len(ds[i]) - 1
-        for j in range(mxlen - len(ds[i])):
-            ds[i].append(ds[i][ln])
-ds = np.array(ds, dtype='float64')
-np.save('dataset/no.npy', ds)
+            if detection.hand_landmarks:
+                res = get_landmarks(detection)[0]
+                ans.append(dist(res[4], res[8]) / dist(res[0], res[8]))
+            cv2.waitKey(1)
+except KeyboardInterrupt:
+    pass
+# for i in range(len(ds)):
+#     if len(ds[i]) < mxlen:
+#         ln = len(ds[i]) - 1
+#         for j in range(mxlen - len(ds[i])):
+#             ds[i].append(ds[i][ln])
+# print(ans)
+# f, ax = plt.subplots()
+plt.rcParams.update({
+    'axes.spines.top': True,
+    'axes.spines.right': True,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'xtick.labelbottom': True,
+    'xtick.bottom': True,
+    'ytick.labelleft': True,
+    'ytick.left': True,
+    # 'xtick.labeltop': True,
+    # 'xtick.top': True,
+    # 'ytick.labelright': True,
+    # 'ytick.right': True
+})
+plt.plot(ans, linewidth=2)
+
+# ax.set(xlabel='time (s)', ylabel='distance',
+#        title='Distance between big and pointing fingers')
+# ax.grid()
+plt.show()
+# ds = np.array(ds, dtype='float64')
+# np.save('dataset/click.npy', ds)
 
 vid.release()
