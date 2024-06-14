@@ -1,5 +1,8 @@
 import serial
 from time import sleep
+import os
+
+os.system('echo Dragon2009 | sudo -S chmod 666 /dev/ttyACM0')
 
 DOWN = 2000
 UP = 1000
@@ -65,3 +68,22 @@ def send_gcode(gcodes: list):
 
 def dist(ax, ay, bx, by):
     return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
+
+if __name__ == '__main__':
+    ser = serial.Serial('/dev/ttyACM0', 115200)
+    sleep(2)
+    ser.write(b'G90\n')
+    try:
+        while True:
+            n = input()
+            if n == 'up':
+                servo(ser, UP)
+            elif n == 'down':
+                servo(ser, DOWN)
+            elif n[0] == 'X' or n[0] == 'Y':
+                ser.write(('G1 ' + n + '\n').encode())
+            else:
+                ser.write((n + '\n').encode())
+    except KeyboardInterrupt:
+        pass
+    ser.close()
