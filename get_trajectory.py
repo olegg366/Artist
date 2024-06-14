@@ -1,11 +1,19 @@
 import os
+<<<<<<< Updated upstream
 os.system('./set_cython.sh')
+=======
+os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=cc61 -std=c++17 -c trajectory.cpp -o trajectory.o')
+os.system('nvc++ -shared -gpu=cc61 -stdpar trajectory.o -o trajectory.so')
+>>>>>>> Stashed changes
 
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+<<<<<<< Updated upstream
 
 from cython_files.accelerated_trajectory import mark, fill, compute_image, remove_intersections
+=======
+>>>>>>> Stashed changes
 
 from PIL import Image
 from imageio.v2 import imread, imwrite
@@ -16,11 +24,60 @@ from skimage.color import rgb2hsv
 from skimage.filters import threshold_otsu
 from skimage.morphology import binary_dilation, square, remove_small_objects
 
+<<<<<<< Updated upstream
 import cv2
+=======
+import ctypes as c
+
+>>>>>>> Stashed changes
 import pickle
 
 from serial_control import get_gcode, send_gcode
 
+<<<<<<< Updated upstream
+=======
+lib = c.CDLL('/home/olegg/Artist/trajectory.so')
+
+DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
+                                   ndim=2,
+                                   flags='C')
+
+DPOINTER3D = np.ctypeslib.ndpointer(dtype=np.float128,
+                                   ndim=3,
+                                   flags='C')
+
+IPOINTER2D = np.ctypeslib.ndpointer(dtype=np.int32,
+                                   ndim=2,
+                                   flags='C')
+
+lib.pmark.argtypes = [DPOINTER2D, DPOINTER2D, c.c_size_t, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.pmark.restype = None
+
+lib.pfill.argtypes = [c.c_int32, c.c_int32, IPOINTER2D, DPOINTER3D, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.pfill.restype = None
+
+lib.pcompute_image.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.c_longdouble, c.c_longdouble]
+lib.pcompute_image.restype = c.POINTER(c.c_int32)
+
+def mark(img, clrs):
+    lib.pmark(img.astype('float128', order='C'), clrs.astype('float128', order='C'), *img.shape, *clrs.shape)
+    return img
+
+def fill(x, y, vis, img):
+    lib.pfill(x, y, vis.astype('int32', order='C'), img.astype('float128', order='C'), *img.shape)
+    return vis, img
+
+def compute_image(img, d, sx, sy):
+    res = lib.pcompute_image(img.astype('int32', order='C'), *img.shape, d, sx, sy)
+    ans = []
+    sz = res[0]
+    for i in range(sz):
+        ans.append([res[i * 2 + 1], res[i * 2 + 2]])
+
+    lib.cleanup(res)
+    return ans
+
+>>>>>>> Stashed changes
 def dispersion(x):
     return ((x - x.mean()) ** 2).sum() / x.size
 
@@ -33,7 +90,13 @@ def get_colors(img):
     elif mx == dg:
         t = g < threshold_otsu(g)
     else:
+<<<<<<< Updated upstream
         t = b < threshold_otsu(b)
+=======
+        t = b <= threshold_otsu(b)
+        
+    return t
+>>>>>>> Stashed changes
 
     lb = label(t)
     big1 = lb == 1
@@ -77,9 +140,12 @@ def get_colors(img):
     f = ~f
     lb = label(~f)
     rgs = regionprops(lb)
+    i = 0
     for rg in rgs:
         if rg.area < 30:
             f, img = fill(*rg.coords[0], f, img)
+        print(i, len(rgs))
+        i += 1
     return img
         
 def draw_img(img: Image):
@@ -93,6 +159,7 @@ def draw_img(img: Image):
     idx = 0
     all = []
     trajectory = []
+<<<<<<< Updated upstream
     for i in range(1, len(clrs)):
         clr = clrs[i]
         f = (img == clr).sum(axis=2) == 3
@@ -114,6 +181,26 @@ def draw_img(img: Image):
     ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='white'))
     ax.add_line(Line2D([trajectory[0, 1], trajectory[-1, 1]], [trajectory[0, 0], trajectory[-1, 0]], lw=1, color='white'))
     plt.show()
+=======
+    # for i in range(1, len(clrs)):
+    #     clr = clrs[i]
+    #     f = (img == clr).sum(axis=2) == 3
+    lb = label(img)
+    rgs = regionprops(lb)
+    for reg in rgs:
+        idx += 1
+        regimg = reg.image
+        cords = compute_image(regimg, 20, *reg.bbox[:2])
+        trajectory = np.array(cords)
+        f, ax = plt.subplots()
+        ax.imshow(img, cmap='gray')
+        ax.add_line(Line2D(trajectory[:, 1], trajectory[:, 0], lw=1, color='blue'))
+        plt.show()
+        all.append('down')
+        all.extend(cords)
+        all.append('up')
+    print('got trajectory')
+>>>>>>> Stashed changes
     
     with open('last_trajectory.lst', 'wb') as f:
         pickle.dump(all, f)
@@ -122,7 +209,10 @@ def draw_img(img: Image):
     # gcode = get_gcode(all)
     # send_gcode(gcode)
     # print('sent gcode')
+<<<<<<< Updated upstream
     # print(remove_intersections([[-5, 1], [-3, 4], [3, 5], [-1, 6], [2, 3], [1, 0]]))
+=======
+>>>>>>> Stashed changes
     
 if __name__ == '__main__':
     img = imread('images/colors_square.png')
