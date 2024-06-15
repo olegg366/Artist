@@ -6,7 +6,6 @@
 #include <memory.h>
 #include <unistd.h>
 #include <iomanip>
-<<<<<<< HEAD
 #include <execution>
 #include <algorithm>
 #include <numeric>
@@ -14,12 +13,6 @@
 using namespace std;
 
 typedef double ld;
-=======
-
-using namespace std;
-
-typedef long double ld;
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
 typedef vector <vector <vector <ld>>> vvvd;
 typedef vector <vector <ld>> vvd;
 typedef vector <vector <int>> vvi;
@@ -28,35 +21,19 @@ typedef vector <ld> vd;
 typedef vector <pair <int, int>> vc;
 
 extern "C"
-<<<<<<< HEAD
 {
     bool eqvdvd(const vd &a, const vd &b) {
         if (a.size() != b.size()) return false; 
         return equal(execution::par_unseq, a.begin(), a.end(), b.begin());
-=======
-{    
-    bool eqvdvd (const vd &a, const vd &b)
-    {
-        for (int i = 0; i < a.size(); i++)
-        {
-            if (a[i] != b[i]) return 0;
-        }
-        return 1;
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     }
 
     bool neqvdvd (const vd &a, const vd &b)
     {
-<<<<<<< HEAD
         return !eqvdvd(a, b);
-=======
-        return !(a == b);
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     }
 
     bool eqvvivvi (const vvi &a, const vvi &b)
     {
-<<<<<<< HEAD
         if (a.size() != b.size() || a[0].size() != b[0].size()) return false; 
 
         for (int x = 0; x < a.size(); ++x) {
@@ -80,34 +57,6 @@ extern "C"
         transform(execution::par_unseq, a.begin(), a.end(), b.begin(), ans.begin(), [](ld x, ld y) {
             return x - y;
         });
-=======
-        for (int x = 0; x < a.size(); x++)
-        {
-            for (int y = 0; y < a[0].size(); y++)
-            {
-                if (a[x][y] != b[x][y]) return 0;
-            }
-        }
-        return 1;
-    }
-
-    bool neqvii (const vvi &a, const int &b)
-    {
-        for (int x = 0; x < a.size(); x++)
-        {
-            for (int y = 0; y < a[0].size(); y++)
-            {
-                if (a[x][y] != b) return 1;
-            }
-        }
-        return 0;
-    }
-
-    vd subvdvd (const vd &a, const vd &b)
-    {
-        vd ans(a.size());
-        for (int i = 0; i < a.size(); i++) ans[i] = a[i] - b[i];
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         return ans;
     }
 
@@ -118,21 +67,12 @@ extern "C"
         return ans;
     }
 
-<<<<<<< HEAD
     vvi vand(const vvi &a, const vvi &b) {
         vvi ans(a.size(), vector<int>(a[0].size()));
         for (size_t i = 0; i < a.size(); ++i) {
             transform(execution::par_unseq, a[i].begin(), a[i].end(), b[i].begin(), ans[i].begin(), [](int x, int y) {
                 return x && y;
             });
-=======
-    vvi vand (const vvi &a, const vvi &b)
-    {
-        vvi ans(a.size(), vi(a[0].size()));
-        for (int x = 0; x < a.size(); x++)
-        {
-            for (int y = 0; y < a[0].size(); y++) ans[x][y] = a[x][y] && b[x][y];
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         }
         return ans;
     }
@@ -140,15 +80,9 @@ extern "C"
     vvi vnot(const vvi &a)
     {
         vvi ans(a.size(), vi(a[0].size()));
-<<<<<<< HEAD
         for (int i = 0; i < a.size(); i++)
         {
             transform(execution::par_unseq, a[i].begin(), a[i].end(), ans[i].begin(), [](int x) {return !x;});
-=======
-        for (int x = 0; x < a.size(); x++)
-        {
-            for (int y = 0; y < a[0].size(); y++) ans[x][y] = !a[x][y];
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         }
         return ans;
     }
@@ -156,22 +90,13 @@ extern "C"
     vd absvd(const vd &x)
     {
         vd ans(x.size());
-<<<<<<< HEAD
         transform(execution::par_unseq, x.begin(), x.end(), ans.begin(), [](ld a) {return abs(a);});
-=======
-        for (int i = 0; i < x.size(); i++) ans[i] = abs(x[i]);
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         return ans;
     }
 
     ld sumvd(const vd &x)
     {
-<<<<<<< HEAD
         ld ans = reduce(execution::par_unseq, x.begin(), x.end(), 0);
-=======
-        ld ans = 0;
-        for (int i = 0; i < x.size(); i++) ans += x[i];
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         return ans;
     }
 
@@ -187,31 +112,19 @@ extern "C"
         vvi ans(arr.size(), vi(ans[0].size(), 0));
         for (int x = 0; x < arr.size(); x++)
         {
-<<<<<<< HEAD
             transform(execution::par_unseq, arr[x].begin(), arr[x].end(), ans[x].begin(), [](pair <int, int> &cords) {return cords.first || cords.second;});
-=======
-            for (int y = 0; y < arr[0].size(); y++) ans[x][y] = arr[x][y].first || arr[x][y].second;
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         }
         return ans;
     }
 
-<<<<<<< HEAD
     vc var = {make_pair(-1, 0), make_pair(0, -1), make_pair(0, 1), make_pair(1, 0), make_pair(-1, -1), make_pair(-1, 1), make_pair(1, -1), make_pair(1, 1)};
-=======
-    vc var = {{-1, 0}, {0, -1}, {0, 1}, {1, 0}, {-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
 
     bool in_image(int x, int y, pair <int, int> shape)
     {
         return x >= 0 && y >= 0 && x < shape.first && y < shape.second;
     }
 
-<<<<<<< HEAD
     int argmin(const vd &arr)
-=======
-    int argmin(vd arr)
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     {
         int idx = -1;
         ld mx = -1e9;
@@ -334,37 +247,35 @@ extern "C"
             y = nz[cnt].second;
             cnt++;
         }
-<<<<<<< HEAD
+        if (x == -1) return make_pair(x, y);
         if (!check_near(x, y, deltas, bimage)) return make_pair(-1, -1);
         return make_pair(x, y);
-=======
-        if (!check_near(x, y, deltas, bimage)) return {-1, -1};
-        return {x, y};
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     }
 
     pair <int, int> random_pointf(vvi &bimage, vc &deltas, vvi &filter)
     {
-        int x = 0, y = 0;
+        int x = -1, y = -1;
         vc nz = nonzero(bimage);
         int cnt = 0;
-        while (cnt < nz.size() && !filter[x][y])
+        pair <int, int> shp = make_pair(filter.size(), filter[0].size());
+        while (cnt < nz.size())
         {
+            if (in_image(x, y, shp))
+            {
+                if (!filter[x][y]) break;
+            }
             x = nz[cnt].first;
             y = nz[cnt].second;
             cnt++;
         }
-<<<<<<< HEAD
+        if (x == -1) return make_pair(x, y);
         if (!filter[x][y]) return make_pair(-1, -1);
         return make_pair(x, y);
-=======
-        if (!filter[x][y]) return {-1, -1};
-        return {x, y};
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     }
 
     void get_deltas(vc &deltas2, vc &mxdeltas, vc &deltas, int d)
     {
+        deltas.push_back(make_pair(0, 0));
         for (int x = -d; x <= d; x++)
         {
             for (int y = -d; y <= d; y++)
@@ -372,21 +283,12 @@ extern "C"
                 if (x == 0 && y == 0) continue;
                 if (sqrt((ld) (x * x + y * y)) <= (d / 2 + 0.5))
                 {
-<<<<<<< HEAD
                     deltas.push_back(make_pair(x, y));
-                    if ((sqrt((ld) (x * x + y * y)) - (d / 2)) <= 0.5) 
+                    if (abs(sqrt((ld) (x * x + y * y)) - d / 2) <= 0.5) 
                         mxdeltas.push_back(make_pair(x, y));
                 }
-                if (sqrt((ld) (x * x + y * y)) - d <= 0.5) 
+                if (abs(sqrt((ld) (x * x + y * y)) - d) <= 0.5) 
                     deltas2.push_back(make_pair(x, y));
-=======
-                    deltas.push_back({x, y});
-                    if ((sqrt((ld) (x * x + y * y)) - (d / 2)) <= 0.5) 
-                        mxdeltas.push_back({x, y});
-                }
-                if (sqrt((ld) (x * x + y * y)) - d <= 0.5) 
-                    deltas2.push_back({x, y});
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             }
         }
     }
@@ -400,52 +302,27 @@ extern "C"
         ld len = sqrt(vx * vx + vy * vy);
         if (len == 0)
         {
-<<<<<<< HEAD
             ans.push_back(make_pair(bx, by));
-=======
-            ans.push_back({bx, by});
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             return ans;
         }
         vx /= len;
         vy /= len;
-<<<<<<< HEAD
-=======
-        // cout << bx << ' ' << by << ' ' << vx << ' ' << vy << ' ' << tx << ' ' << ty << '\n';
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
         ld x = bx, y = by;
         ld i = 0;
         bool cond = 1;
         while (cond)
         {
-<<<<<<< HEAD
             ans.push_back(make_pair(x, y));
-=======
-            // cout << bx << ' ' << by << ' ' << x << ' ' << y << ' ' << tx << ' ' << ty << '\n';
-            ans.push_back({x, y});
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             x = bx + i * vx;
             y = by + i * vy;
             i++;
             cond = !((abs(x - tx) < 1e-6) && (abs(y - ty) < 1e-6));
-<<<<<<< HEAD
             if (tx - x != 0) cond = cond && ((x - bx) / (tx - x) >= 0);
             if (ty - y != 0) cond = cond && ((y - by) / (ty - y) >= 0);
         }
         ans.push_back(make_pair(tx, ty));
         return ans;
     }
-
-=======
-            // cout << x - tx << ' ' << y - ty << '\n';
-            if (tx - x != 0) cond = cond && ((x - bx) / (tx - x) >= 0);
-            if (ty - y != 0) cond = cond && ((y - by) / (ty - y) >= 0);
-            // cout << cond << '\n';
-        }
-        ans.push_back({tx, ty});
-        return ans;
-    }
-
 
     void save(vvi &image)
     {
@@ -493,7 +370,7 @@ extern "C"
         bmpinfoheader[10] = (unsigned char)(       h>>16);
         bmpinfoheader[11] = (unsigned char)(       h>>24);
 
-        f = fopen("img.bmp", "wb");
+        f = fopen("images/img.bmp", "wb");
         fwrite(bmpfileheader, 1, 14, f);
         fwrite(bmpinfoheader, 1, 40, f);
         for(int i = 0; i < h; i++)
@@ -506,7 +383,6 @@ extern "C"
         fclose(f);
     }
 
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     void get_trajectory(vvi &bimage, int d, int sx, int sy, vc &ans)
     {
         vc deltas2, mxdeltas, deltas;
@@ -515,11 +391,15 @@ extern "C"
         vvi filter = bimage;
 
         int x, y, xn, yn, xp, yp, it, xnn, ynn;
-        bool change;
+        bool change, flagfill = 1;
         
         pair <int, int> res = random_point(bimage, mxdeltas);
         x = res.first;
         y = res.second;
+
+        ans.push_back(make_pair(x, y));
+        ans.push_back(make_pair(-1e9, -1e9));
+
         xp = 0;
         yp = 0;
         it = 0;
@@ -527,25 +407,29 @@ extern "C"
         vc path;
         pair <int, int> shp = {bimage.size(), bimage[0].size()};
 
-<<<<<<< HEAD
         int zero = 0;
         while (neqvii(bimage, zero))
         {
+            if (it % 1000 == 0)
+            {
+                save(bimage);
+                sleep(2);
+            }
             cout << nonzero(bimage).size() << '\n';
-=======
-        while (neqvii(bimage, 0))
-        {
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             change = 0;
+            flagfill = 1;
             for (pair <int, int> dt : deltas2)
             {
                 xn = x + dt.first; yn = y + dt.second;
-                if (in_image(xn, yn, shp) && bimage[xn][yn] && check_near(xn, yn, mxdeltas, bimage))
+                if (in_image(xn, yn, shp))
                 {
-                    x = xn; y = yn;
-                    ans.push_back({x + sx, y + sy});
-                    change = 1;
-                    break;
+                    if (bimage[xn][yn] && check_near(xn, yn, mxdeltas, bimage))
+                    {
+                        x = xn; y = yn;
+                        ans.push_back(make_pair(x + sx, y + sy));
+                        change = 1;
+                        break;
+                    }
                 }
             }
 
@@ -558,38 +442,25 @@ extern "C"
                     res = random_pointf(bimage, mxdeltas, filter);
                     x = res.first; y = res.second;
                 }
-                ans.push_back({x + sx, y + sy});
+                ans.push_back(make_pair(1e9, 1e9));
+                ans.push_back(make_pair(x + sx, y + sy));
+                ans.push_back(make_pair(-1e9, -1e9));
+                flagfill = 0;
             }
 
-            bimage[x][y] = 0;
-            if (it)
+            if (flagfill && it)
             {
-<<<<<<< HEAD
                 path = get_path(xp, yp, x, y);
-=======
-                // cout << xp << ' ' << yp << ' ' << x << ' ' << y << '\n';
-                path = get_path(xp, yp, x, y);
-                // cout << "------------------------------------------------\n";
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
                 for (pair <int, int> xyn : path)
                 {
                     xn = xyn.first, yn = xyn.second;
                     
-<<<<<<< HEAD
-=======
-                    // cout << xn << ' ' << yn << ' ' << x << ' ' << y << '\n';
-                    
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
                     for (pair <int, int> dt : deltas)
                     {
                         xnn = xn + dt.first; ynn = yn + dt.second;
                         if (in_image(xnn, ynn, shp)) bimage[xnn][ynn] = 0;
                     }
                 }
-<<<<<<< HEAD
-=======
-                // cout << "------------------------------------------------\n";
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             }
             else
             {
@@ -601,14 +472,6 @@ extern "C"
             }
             xp = x;
             yp = y;
-<<<<<<< HEAD
-=======
-            if (it % 100 == 0) 
-            {
-                save(bimage);
-                sleep(1);
-            }
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             it++;
         }
     }
@@ -657,17 +520,10 @@ extern "C"
         ld sx = variance(x, xm), sy = variance(y, ym);
         ld sxy = variancexy(x, y, xm, ym);
 
-<<<<<<< HEAD
         if (sxy == 0) return {0, make_pair(0, 0)};
         ld a = (sy - sx + sqrt((sy - sx) * (sy - sx) + 4 * sxy * sxy)) / (2 * sxy);
         ld b = ym - a * xm;
         return {1, make_pair(a, b)};
-=======
-        if (sxy == 0) return {0, {0, 0}};
-        ld a = (sy - sx + sqrt((sy - sx) * (sy - sx) + 4 * sxy * sxy)) / (2 * sxy);
-        ld b = ym - a * xm;
-        return {1, {a, b}};
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     }
 
     vc approximate(vc &cords)
@@ -742,11 +598,7 @@ extern "C"
         {
             for (int b = 0; b < vec[0].size(); b++)
             {
-<<<<<<< HEAD
                 for (int c = 0; c < vec[0][0].size(); c++) pointer[a * vec.size() + b * vec[0].size() + c] = vec[a][b][c];
-=======
-                for (int c = 0; c < vec[0][0].size(); c++) pointer[a * vec.size() + b * vec[0].size()] = vec[a][b][c];
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
             }
         }
     }
@@ -771,7 +623,7 @@ extern "C"
     {
         for (int x = 0; x < n; x++)
         {
-            for (int y = 0; y < m; y++) ans[x][y] = pointer[x * n + y];
+            for (int y = 0; y < m; y++) ans[x][y] = pointer[x * m + y];
         }
     }
 
@@ -804,7 +656,7 @@ extern "C"
         return ans;
     }
 
-    int* pcompute_image(int* pointer, size_t n, size_t m, int d, ld sx, ld sy)
+    int* pcompute_image(int* pointer, size_t n, size_t m, int d, int sx, int sy)
     {
         vvi image(n, vi(m));
         pointer2vvi(pointer, n, m, image);
@@ -838,8 +690,4 @@ extern "C"
     {
         delete[] pntr;
     }
-<<<<<<< HEAD
 }
-=======
-}   
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c

@@ -38,14 +38,11 @@ def get_func_from_saved_model(saved_model_dir):
        signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
    return graph_func, saved_model_loaded
 
-<<<<<<< HEAD
-<<<<<<< Updated upstream
 def run_app():
     global app
     while True:
         app.update()
 
-=======
 def callback(_, step_index, timestep, callback_kwargs):
     app.progressbar_step(1)
     app.update()
@@ -66,7 +63,6 @@ def generate(img, prompt):
                                                             torch_dtype=torch.float32)
     tomesd.apply_patch(pipe, ratio=0.5)
 
-=======
 def generate(img, prompt):
     image = np.array(img)
     c = image[:, :, 0]
@@ -82,7 +78,6 @@ def generate(img, prompt):
                                                             torch_dtype=torch.float32)
     tomesd.apply_patch(pipe, ratio=0.5)
 
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     helper = DeepCacheSDHelper(pipe=pipe)
     helper.set_params(
         cache_interval=5,
@@ -102,20 +97,13 @@ def generate(img, prompt):
     
     print('Succesfully set up stable diffusion.')
 
-<<<<<<< HEAD
     image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, generator=generator, callback_on_step_end=callback).images[0]
-=======
-    image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, generator=generator).images[0]
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
     
     del pipe
     del controlnet
     
     return image
-<<<<<<< HEAD
->>>>>>> Stashed changes
-=======
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
+
 print('Setting up widget...')
 app = App()
 print('Successfully set up widget.')
@@ -229,21 +217,14 @@ if __name__ == '__main__':
                     app.update()
                     gen = generate(scribble, "mountains, sketch art, one color")
                     device.reset()
-<<<<<<< HEAD
-<<<<<<< Updated upstream
+
                     img.save('now.png')
                     app.display(img)
                     # draw_img(img)
-=======
+                    
                     gen.save('images/now.png')
                     app.display(gen)
                     draw_img(gen)
->>>>>>> Stashed changes
-=======
-                    gen.save('images/now.png')
-                    app.display(gen)
-                    # draw_img(gen)
->>>>>>> 1d7df5aa60e6fbc1b583c7f3f14e203305954c7c
                     app.change_status()
                     app.update()
                     try:
