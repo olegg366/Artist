@@ -11,7 +11,6 @@ def recognize(app):
         audio = r.listen(source, phrase_time_limit=10)
     try:
         text = r.recognize_google(audio, language='ru-RU')
-        # print(text)
         if not text:
             return ''
         translator = Translator()
@@ -23,5 +22,3 @@ def recognize(app):
     except sr.RequestError as e:
         print("Could not request results from Google Speech Recognition service; {0}".format(e))
         return ''
-    
-

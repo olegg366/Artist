@@ -213,7 +213,7 @@ extern "C"
         {
             for (int y = 0; y < vec[0].size(); y++)
             {
-                if (vec[x][y]) ans.push_back({x, y});
+                if (vec[x][y]) ans.push_back(make_pair(x, y));
             }
         }
         return ans;
@@ -222,16 +222,18 @@ extern "C"
     bool check_near(int x, int y, vc &deltas, vvi &bimage)
     {
         int xn, yn, dtx, dty;
+        pair <int, int> shp = {bimage.size(), bimage[0].size()};
         for (int i = 0; i < deltas.size(); i++)
         {
             dtx = deltas[i].first;
             dty = deltas[i].second;
             xn = x + dtx;
             yn = y + dty;
-            if (in_image(xn, yn, {bimage.size(), bimage[0].size()}))
+            if (in_image(xn, yn, shp))
             {
                 if (!bimage[xn][yn]) return 0;
             }
+            else return 0;
         }
         return 1;
     }
@@ -262,23 +264,21 @@ extern "C"
         {
             if (in_image(x, y, shp))
             {
-                if (!filter[x][y]) break;
+                if (check_near(x, y, deltas, filter)) break;
             }
             x = nz[cnt].first;
             y = nz[cnt].second;
             cnt++;
         }
-        if (x == -1) return make_pair(x, y);
-        if (!filter[x][y]) return make_pair(-1, -1);
         return make_pair(x, y);
     }
 
     void get_deltas(vc &deltas2, vc &mxdeltas, vc &deltas, int d)
     {
         deltas.push_back(make_pair(0, 0));
-        for (int x = -d; x <= d; x++)
+        for (int x = -d - 2; x <= d + 2; x++)
         {
-            for (int y = -d; y <= d; y++)
+            for (int y = -d - 2; y <= d + 2; y++)
             {
                 if (x == 0 && y == 0) continue;
                 if (sqrt((ld) (x * x + y * y)) <= (d / 2 + 0.5))
@@ -287,7 +287,7 @@ extern "C"
                     if (abs(sqrt((ld) (x * x + y * y)) - d / 2) <= 0.5) 
                         mxdeltas.push_back(make_pair(x, y));
                 }
-                if (abs(sqrt((ld) (x * x + y * y)) - d) <= 0.5) 
+                if (abs(sqrt((ld) (x * x + y * y)) - (d + 2)) <= 0.5) 
                     deltas2.push_back(make_pair(x, y));
             }
         }
@@ -410,12 +410,12 @@ extern "C"
         int zero = 0;
         while (neqvii(bimage, zero))
         {
-            if (it % 1000 == 0)
-            {
-                save(bimage);
-                sleep(2);
-            }
-            cout << nonzero(bimage).size() << '\n';
+            // if (it % 1000 == 0)
+            // {
+            //     save(bimage);
+            //     sleep(2);
+            // }
+            // cout << nonzero(bimage).size() << '\n';
             change = 0;
             flagfill = 1;
             for (pair <int, int> dt : deltas2)
@@ -442,9 +442,13 @@ extern "C"
                     res = random_pointf(bimage, mxdeltas, filter);
                     x = res.first; y = res.second;
                 }
-                ans.push_back(make_pair(1e9, 1e9));
-                ans.push_back(make_pair(x + sx, y + sy));
-                ans.push_back(make_pair(-1e9, -1e9));
+                if (bimage[x][y])
+                {
+                    ans.push_back(make_pair(1e9, 1e9));
+                    ans.push_back(make_pair(x + sx, y + sy));
+                    ans.push_back(make_pair(-1e9, -1e9));
+                    ans.push_back(make_pair(x + sx, y + sy));
+                }    
                 flagfill = 0;
             }
 
@@ -466,7 +470,7 @@ extern "C"
             {
                 for (pair <int, int> dt : deltas)
                 {
-                    xn = x + dt.first; yn = x + dt.second;
+                    xn = x + dt.first; yn = y + dt.second;
                     if (in_image(xn, yn, shp)) bimage[xn][yn] = 0;
                 }
             }
@@ -662,7 +666,7 @@ extern "C"
         pointer2vvi(pointer, n, m, image);
         vc trajectory;
         get_trajectory(image, d, sx, sy, trajectory);
-        trajectory = approximate(trajectory);
+        // trajectory = approximate(trajectory);
         return vc2pointer(trajectory);
     }
 

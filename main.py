@@ -3,9 +3,9 @@ import pyautogui as pg
 import numpy as np
 
 import torch
+import gc
 import mediapipe as mp
 import tensorflow as tf
-from numba import cuda
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.saved_model import tag_constants
 
@@ -29,7 +29,6 @@ for device in gpu_devices:
     tf.config.experimental.set_memory_growth(device, True)
 
 pg.FAILSAFE = False
-device = cuda.get_current_device()
     
 def get_func_from_saved_model(saved_model_dir):
    saved_model_loaded = tf.saved_model.load(
@@ -47,21 +46,6 @@ def callback(_, step_index, timestep, callback_kwargs):
     app.progressbar_step(1)
     app.update()
     return callback_kwargs
-
-def generate(img, prompt):
-    image = np.array(img)
-    c = image[:, :, 0]
-    t = threshold_otsu(c)
-    img = Image.fromarray((image <= t).astype('uint8') * 255)
-    print('Setting up stable diffusion...')
-    controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                             torch_dtype=torch.float32)
-    pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
-                                                            controlnet=controlnet,
-                                                            safety_checker=None, 
-                                                            use_safetensors=True,
-                                                            torch_dtype=torch.float32)
-    tomesd.apply_patch(pipe, ratio=0.5)
 
 def generate(img, prompt):
     image = np.array(img)
@@ -97,10 +81,15 @@ def generate(img, prompt):
     
     print('Succesfully set up stable diffusion.')
 
-    image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, generator=generator, callback_on_step_end=callback).images[0]
+    image = pipe(prompt, img, 
+                 num_inference_steps=50, 
+                 height=512, width=512, 
+                 generator=generator, 
+                 callback_on_step_end=callback).images[0]
     
-    del pipe
-    del controlnet
+    del pipe, controlnet
+    gc.collect()
+    torch.cuda.empty_cache()
     
     return image
 
@@ -206,27 +195,23 @@ if __name__ == '__main__':
                         'start' : 0
                     }
                     scribble = app.image
-                    del trt_func
-                    tf.keras.backend.clear_session()
-                    sleep(2)
                     scribble.save('images/scribble.png')
                     # prompt, rus = recognize(app)
-                    # app.print_text('Вы сказали: ' + rus)
+                    
+                    app.print_text('Вы сказали: ' + 'дерево')
                     app.change_status()
                     app.setup_progressbar()
                     app.update()
-                    gen = generate(scribble, "mountains, sketch art, one color")
-                    device.reset()
-
-                    img.save('now.png')
-                    app.display(img)
-                    # draw_img(img)
                     
-                    gen.save('images/now.png')
+                    gen = generate(scribble, 'tree' + ', sketch art, one color')
+                    
+                    gen.save('images/gen.png')
+                    
                     app.display(gen)
-                    draw_img(gen)
                     app.change_status()
                     app.update()
+                    
+                    draw_img(gen)
                     try:
                         sleep(6000)
                     except KeyboardInterrupt:

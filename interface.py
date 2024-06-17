@@ -114,7 +114,7 @@ class App():
         self.fr_status = tk.Frame(self.fr_ctrl)
         self.fr_status.pack(side='left', fill='both', expand=True)
         
-        self.text_lb = tk.Label(self.fr_ctrl, relief='groove')
+        self.text_lb = tk.Label(self.fr_status, relief='groove')
         
         self.fr_progressbar = tk.Frame(self.fr_status, height=60)
         
@@ -237,6 +237,7 @@ class App():
                 
     def print_text(self, text):
         self.fr_progressbar.pack_forget()
+        self.lb_progressbar.pack_forget()
         self.text_lb.pack(side='left', expand=True, fill='both')
         self.text_lb.configure(text=text, font=self.btfont)
                 
