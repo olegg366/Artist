@@ -13,7 +13,6 @@ baudrate = 115200
 speed = 5000
 
 def servo(ser, n):
-    # return None
     cnt = 10
     if n == UP:
         cnt = 1

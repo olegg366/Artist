@@ -1,4 +1,6 @@
 import tkinter as tk
+from tkinter.ttk import Progressbar
+from tkinter.ttk import Style
 from PIL import ImageTk, Image, ImageDraw
 from webcolors import name_to_rgb
 from multiprocessing import Process
@@ -105,12 +107,31 @@ class App():
         self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
         self.points_image_panel.pack(side='right', fill='both')
         
-        self.text_lb = tk.Label(self.fr_ctrl, relief='groove')
-        self.text_lb.pack(side='left', fill='both', expand=True)
-        
         #предыдущие высота и ширина canvas
         self.prevw = 0
         self.prevh = 0
+        
+        self.fr_status = tk.Frame(self.fr_ctrl)
+        self.fr_status.pack(side='left', fill='both', expand=True)
+        
+        self.text_lb = tk.Label(self.fr_status, relief='groove')
+        
+        self.fr_progressbar = tk.Frame(self.fr_status, height=60)
+        
+        self.progressval = 0
+        self.progressmax = 50
+        
+        self.style = Style(self.root)
+        self.style.layout('text.Horizontal.TProgressbar',
+                    [('Horizontal.Progressbar.trough',
+                    {'children': [('Horizontal.Progressbar.pbar',
+                                    {'side': 'left', 'sticky': 'ns'})],
+                        'sticky': 'nswe'}),
+                    ('Horizontal.Progressbar.label', {'sticky': ''})])
+        self.style.configure('text.Horizontal.TProgressbar', text=f'0/{self.progressmax}', background='yellow', font='Montserrat 20')
+
+        self.progressbar = Progressbar(self.fr_progressbar, style='text.Horizontal.TProgressbar', length=200, maximum=self.progressmax)
+        self.lb_progressbar = tk.Label(self.fr_status, text='Идет обработка, подождите...', font='Times 18', bg='orange')
 
         self.actions = []
 
@@ -129,6 +150,21 @@ class App():
         else:
             self.now_clr = 'red'
         self.status_drawing.configure(bg=self.now_clr)
+        
+    def progressbar_step(self, amount):        
+        self.progressval = (self.progressval + amount) % (self.progressmax + 1)
+        self.style.configure('text.Horizontal.TProgressbar', text=f'{self.progressval}/{self.progressmax}')
+        self.progressbar.step(amount)
+        
+    def setup_progressbar(self):
+        self.text_lb.pack_forget()
+    
+        
+        self.fr_progressbar.pack(anchor='s', fill='x', expand=True, padx=15)
+        self.fr_progressbar.pack_propagate(False)
+        
+        self.progressbar.pack(fill='both', expand=True)
+        self.lb_progressbar.pack(anchor='center')
         
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
@@ -183,9 +219,11 @@ class App():
         self.line_options['width'] = x
         self.fr_wd_set.place_forget()
 
-    def update(self, image=None):
+    def update(self, image: Image = None):
         if image is not None:
-            self.points_image = ImageTk.PhotoImage(Image.fromarray(image.astype('uint8')))
+            image = Image.fromarray(image.astype('uint8'))
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            self.points_image = ImageTk.PhotoImage(image)
             self.points_image_panel.configure(image=self.points_image)
         self.root.update()
         h, w = self.canvas.winfo_height(), self.canvas.winfo_width()
@@ -198,6 +236,9 @@ class App():
                 action()
                 
     def print_text(self, text):
+        self.fr_progressbar.pack_forget()
+        self.lb_progressbar.pack_forget()
+        self.text_lb.pack(side='left', expand=True, fill='both')
         self.text_lb.configure(text=text, font=self.btfont)
                 
     def remove_img(self):
@@ -212,11 +253,13 @@ from skimage.transform import resize
 if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
     app = App()
+    app.setup_progressbar()
     while True:
         res, img = vid.read()
         if not res:
             break
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        app.progressbar_step(1)
         app.update(resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255)
-        app.print_text('Text')
     vid.release()
+    
