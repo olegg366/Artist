@@ -59,6 +59,7 @@
   #define BOARD_INFO_NAME "RAMPS 1.4"
 #endif
 
+#define SERVO0_PIN 12
 //
 // Servos
 //
