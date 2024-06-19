@@ -77,3 +77,5 @@
 //#define HEATER_0_PIN                        22  // EXTRUDER 1
 //#define HEATER_1_PIN                        23  // EXTRUDER 2
 //#define HEATER_BED_PIN                      24
+
+#define SERVO0_PIN 12
