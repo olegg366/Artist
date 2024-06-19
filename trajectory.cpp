@@ -43,7 +43,6 @@ extern "C"
         return true;
     }
 
-
     bool neqvii(vvi a, int b) {
         return any_of(a.begin(), a.end(), [=](const std::vector<int> row) {
             return any_of(execution::par_unseq, row.begin(), row.end(), [=](int elem) {
@@ -485,7 +484,7 @@ extern "C"
         ld s = 0;
         for (pair <int, int> pnt : cords)
             s = max(s, abs(a * pnt.first + b - pnt.second));
-        return s < 5;
+        return s < 3;
     }
 
     ld mean(vi &vec)
@@ -532,12 +531,36 @@ extern "C"
 
     vc approximate(vc &cords)
     {
-        int i = 0; 
-        vc ncords;
+        int i = 2; 
+        vc ncords = {cords[0], cords[1]};
         vc now;
         ld an, bn;
         while (i < cords.size())
         {
+            if (cords[i].first == 1e9) 
+            {
+                if (now.size() > 1)
+                {
+                    ncords.push_back(now[0]);
+                    ncords.push_back(now.back());
+                }
+                ncords.push_back(cords[i]);
+                i++;
+                now.clear();
+                continue;
+            }
+            else if (cords[i].first == -1e9) 
+            {
+                if (!now.empty())
+                {
+                    for (pair <int, int> e: now) ncords.push_back(e);
+                } 
+                ncords.push_back(cords[i]);
+                now.clear();
+                i++;
+                continue;
+            }
+            
             now.push_back(cords[i]);
             if (now.size() < 2)
             {
@@ -559,17 +582,19 @@ extern "C"
 
             if (!check_poly(now, an, bn))
             {
-                ncords.push_back(now[0]);
-                ncords.push_back(now[now.size() - 2]);
+                if (now.size() > 1)
+                {
+                    ncords.push_back(now[0]);
+                    ncords.push_back(now[now.size() - 2]);
+                }
                 now = {cords[i]};
             }
             i++;
         }
-        if (!now.empty())
+        if (now.size() > 1)
         {
             ncords.push_back(now[0]);
-            if (now.size() > 1)
-                ncords.push_back(now.back());
+            ncords.push_back(now.back());
         }
         return ncords;
     }
@@ -577,11 +602,15 @@ extern "C"
     void remove_dublicates(vc &x)
     {
         int i = 0; 
-        while (i < x.size())
+        while (i < x.size() - 3)
         {
-            while (x.size() > 1 && i < x.size() && x[(i + 1) % x.size()] == x[i])
+            if (x[i].first == 1e9 && x[i + 2].first == -1e9 && x[i + 3].first == 1e9)
+            {
                 x.erase(x.begin() + i);
-            i++;
+                x.erase(x.begin() + i);
+                x.erase(x.begin() + i);
+            }
+            else i++;
         }
     }
 
@@ -666,7 +695,8 @@ extern "C"
         pointer2vvi(pointer, n, m, image);
         vc trajectory;
         get_trajectory(image, d, sx, sy, trajectory);
-        // trajectory = approximate(trajectory);
+        trajectory = approximate(trajectory);
+        remove_dublicates(trajectory);
         return vc2pointer(trajectory);
     }
 

@@ -1,10 +1,26 @@
 import os
-print('compiling...')
-# err = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc61 -std=c++17 -c trajectory.cpp -o trajectory.o')
-# err = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc61 -stdpar trajectory.o -o trajectory.so') or err
-# if err:
-#     exit(err)
-print('compiled')
+
+src = open('trajectory.cpp', 'r')
+dst = open('trajectory.prev', 'r')
+s, d = src.read(), dst.read()
+try:
+    if s != d:
+        print('compiling...')
+        dst.close()
+        
+        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc61 -std=c++17 -c trajectory.cpp -o trajectory.o')
+        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc61 -stdpar trajectory.o -o trajectory.so')
+        
+        if err1: exit(err1)
+        if err2: exit(err2)
+        
+        dst = open('trajectory.prev', 'w')
+        dst.write(s)
+        print('compiled')
+finally:
+    dst.close()
+    src.close()
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,13 +32,10 @@ from time import sleep
 
 from skimage.measure import label, regionprops
 from skimage.feature import canny
-from skimage.filters import threshold_otsu
 from skimage.transform import resize
-from skimage.morphology import binary_dilation, square, remove_small_objects
+from skimage.morphology import binary_dilation, square
 
 import ctypes as c
-
-import pickle
 
 from serial_control import get_gcode, send_gcode
 
@@ -92,12 +105,8 @@ def draw_img(img: Image):
     print('got colors')
     
     print('getting trajectory...')
-    clrs = np.unique(img.reshape(-1, img.shape[-1]), axis=0)
     idx = 0
     trajectory = []
-    # for i in range(1, len(clrs)):
-    #     clr = clrs[i]
-    #     f = (img == clr).sum(axis=2) == 3
     lb = label(img)
     rgs = regionprops(lb)
     for reg in rgs:
@@ -108,26 +117,28 @@ def draw_img(img: Image):
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
-    trajectory = np.array(trajectory)
-    ax = plt.subplot()
-    ax.imshow(img, cmap='gray')
-    i = 0
-    end = 0
-    while i < len(trajectory):
-        while i < len(trajectory) and trajectory[i, 0] != -1e9:
-            i += 1
-        i += 1
-        end = i
-        while i < len(trajectory) and trajectory[i, 0] != 1e9:
-            i += 1
-        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    plt.get_current_fig_manager().full_screen_toggle()
-    plt.show()
+    # trajectory = np.array(trajectory)
+    # ax = plt.subplot()
+    # ax.imshow(img, cmap='gray')
+    # i = 0
+    # end = 0
+    # while i < len(trajectory):
+    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
+    #         i += 1
+    #     i += 1
+    #     end = i
+    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
+    #         i += 1
+    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+    # plt.get_current_fig_manager().full_screen_toggle()
+    # plt.show()
     
-    # print('sending gcode...')
-    # gcode = get_gcode(all)
-    # send_gcode(gcode)
-    # print('sent gcode')
+    print('sending gcode...')
+    gcode = get_gcode(trajectory)
+    print(gcode)
+    sleep(100)
+    send_gcode(gcode)
+    print('sent gcode')
     
 if __name__ == '__main__':
     img = imread('images/gen.png')

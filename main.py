@@ -169,14 +169,12 @@ if __name__ == '__main__':
                 if len(last_cords) < 6:
                     timestamp += 1
                     continue
-                # print(dist(lmks[0, 4], lmks[0, 8]) / dist(lmks[0, 0], lmks[0, 8]))
                 if dist(lmks[0, 4], lmks[0, 8]) / dist(lmks[0, 0], lmks[0, 8]) <= 0.2:
                     gt = 'Click'
                 else:
                     inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
                     pred = trt_func(**inp)['dense_5']
                     gt = classes[np.argmax(pred[0])]
-                # print(gt)
                 flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end)
                 if flagn != flag and not end:
                     app.change_status()

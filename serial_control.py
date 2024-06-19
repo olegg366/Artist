@@ -10,7 +10,7 @@ UP = 1000
 port = "/dev/ttyACM0"  
 baudrate = 115200 
 
-speed = 5000
+speed = 8000
 
 def servo(ser, n):
     cnt = 10
@@ -22,24 +22,18 @@ def servo(ser, n):
         ser.write(b'M42 P12 S0 T1\n')
         
 def get_gcode(t: list):
-    i = 1
-    k = 3
-    ans = []
+    i = 2
+    k = 2
+    ans = [f'G1 X{t[0][0] / k} Y{t[0][1] / k} F{speed * 2}\n', 'down']
     while i < len(t):
-        ans += ['down']
-        i += 1
-        while i < len(t) and t[i] != 'up':
-            try:
-                ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
-            except TypeError:
-                pass
+        while i < len(t) and t[i][0] != 1e9:
+            ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
             i += 1
         ans += ['up']
         if i < len(t) - 1:
-            try:
-                ans += [f'G1 X{t[i + 1][0] / k} Y{t[i + 1][1] / k} F{speed}\n']
-            except TypeError:
-                pass
+            ans += [f'G1 X{t[i + 1][0] / k} Y{t[i + 1][1] / k} F{speed * 2}\n']
+        ans += ['down']
+        i += 3
     return ans
 
 def send_gcode(gcodes: list):
