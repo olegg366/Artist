@@ -396,7 +396,7 @@ extern "C"
         x = res.first;
         y = res.second;
 
-        ans.push_back(make_pair(x, y));
+        ans.push_back(make_pair(x + sx, y + sy));
         ans.push_back(make_pair(-1e9, -1e9));
 
         xp = 0;
@@ -484,7 +484,7 @@ extern "C"
         ld s = 0;
         for (pair <int, int> pnt : cords)
             s = max(s, abs(a * pnt.first + b - pnt.second));
-        return s < 3;
+        return s < 1;
     }
 
     ld mean(vi &vec)

@@ -33,7 +33,7 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Times 26'
+        self.btfont = 'Arial 26'
         self.bth = 5
         self.btw = 13
 
@@ -131,7 +131,7 @@ class App():
         self.style.configure('text.Horizontal.TProgressbar', text=f'0/{self.progressmax}', background='yellow', font='Montserrat 20')
 
         self.progressbar = Progressbar(self.fr_progressbar, style='text.Horizontal.TProgressbar', length=200, maximum=self.progressmax)
-        self.lb_progressbar = tk.Label(self.fr_status, text='Идет обработка, подождите...', font='Times 18', bg='orange')
+        self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Times 18')
 
         self.actions = []
 
@@ -164,7 +164,7 @@ class App():
         self.fr_progressbar.pack_propagate(False)
         
         self.progressbar.pack(fill='both', expand=True)
-        self.lb_progressbar.pack(anchor='center')
+        self.lb_progressbar.pack()
         
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)

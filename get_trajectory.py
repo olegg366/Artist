@@ -78,7 +78,7 @@ def compute_image(img, d, sx, sy):
         ans.append([res[i * 2 + 1], res[i * 2 + 2]])
 
     lib.cleanup(res)
-    i = 0
+    
     return ans
 
 def dispersion(x):
@@ -96,6 +96,8 @@ def get_colors(img):
         t = canny(b)
         
     t = binary_dilation(t, square(5))
+    nz = np.nonzero(t)
+    t = t[np.min(nz[0]) - 10:np.max(nz[0]) + 10, np.min(nz[1]) - 10:np.max(nz[1]) + 10]
     return t
         
 def draw_img(img: Image):
@@ -117,6 +119,7 @@ def draw_img(img: Image):
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
+    # print(trajectory)
     # trajectory = np.array(trajectory)
     # ax = plt.subplot()
     # ax.imshow(img, cmap='gray')
@@ -135,12 +138,10 @@ def draw_img(img: Image):
     
     print('sending gcode...')
     gcode = get_gcode(trajectory)
-    print(gcode)
-    sleep(100)
     send_gcode(gcode)
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/gen.png')
-    img = resize(img, (512, 512))
+    img = imread('images/robot.png')
+    img = resize(img, (int(img.shape[0] * (800 / img.shape[1])), 800))
     draw_img(img)
