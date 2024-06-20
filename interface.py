@@ -5,8 +5,128 @@ from PIL import ImageTk, Image, ImageDraw
 from webcolors import name_to_rgb
 from multiprocessing import Process
 from time import sleep
+from skimage.transform import resize
 import cv2
 import numpy as np
+
+imgh = 300
+imgw = 400
+
+class RoundedFrame(tk.Canvas):
+    def __init__(self, 
+                 master=None, 
+                 text:str="", 
+                 radius=25, 
+                 btnforeground="#000000", 
+                 btnpressclr="d2d6d3", 
+                 font='Arial 30', 
+                 btnbackground="#ffffff", 
+                 btncontour='',
+                 btncontourwidth=0,
+                 clicked=None, 
+                 click=True, 
+                 *args, **kwargs):
+        super(RoundedFrame, self).__init__(master, *args, **kwargs)
+        self.config(bg=self.master["bg"])
+        self.btnbackground = btnbackground
+        self.btnpressclr = btnpressclr
+        self.clicked = clicked
+        self.click = click
+
+        self.radius = radius        
+        
+        self.rect = self.round_rectangle(0, 0, 0, 0, 
+                                         tags="button", 
+                                         radius=radius, 
+                                         fill=btnbackground, 
+                                         width=btncontourwidth,
+                                         outline=btncontour)
+        self.text = self.create_text(0, 0, text=text, tags="button", fill=btnforeground, font=font, justify="center")
+
+        self.tag_bind("button", "<ButtonPress>", self.border)
+        self.tag_bind("button", "<ButtonRelease>", self.border)
+        self.bind("<Configure>", self.resize)
+        
+        text_rect = self.bbox(self.text)
+        if int(self["width"]) < text_rect[2]-text_rect[0]:
+            self["width"] = (text_rect[2]-text_rect[0]) + 10
+        
+        if int(self["height"]) < text_rect[3]-text_rect[1]:
+            self["height"] = (text_rect[3]-text_rect[1]) + 10
+          
+    def round_rectangle(self, x1, y1, x2, y2, radius=25, update=False, **kwargs): 
+        points = [x1+radius, y1,
+                x1+radius, y1,
+                x2-radius, y1,
+                x2-radius, y1,
+                x2, y1,
+                x2, y1+radius,
+                x2, y1+radius,
+                x2, y2-radius,
+                x2, y2-radius,
+                x2, y2,
+                x2-radius, y2,
+                x2-radius, y2,
+                x1+radius, y2,
+                x1+radius, y2,
+                x1, y2,
+                x1, y2-radius,
+                x1, y2-radius,
+                x1, y1+radius,
+                x1, y1+radius,
+                x1, y1]
+
+        if not update:
+            return self.create_polygon(points, smooth=True, **kwargs)
+        else:
+            self.coords(self.rect, points)
+
+    def resize(self, event):
+        text_bbox = self.bbox(self.text)
+
+        if self.radius > event.width or self.radius > event.height:
+            radius = min((event.width, event.height))
+        else:
+            radius = self.radius
+
+        width, height = event.width, event.height
+
+        if event.width < text_bbox[2]-text_bbox[0]:
+            width = text_bbox[2]-text_bbox[0] + 30
+        
+        if event.height < text_bbox[3]-text_bbox[1]:  
+            height = text_bbox[3]-text_bbox[1] + 30
+        
+        self.round_rectangle(5, 5, width-5, height-5, radius, update=True)
+
+        bbox = self.bbox(self.rect)
+
+        x = ((bbox[2]-bbox[0])/2) - ((text_bbox[2]-text_bbox[0])/2)
+        y = ((bbox[3]-bbox[1])/2) - ((text_bbox[3]-text_bbox[1])/2)
+
+        self.moveto(self.text, x, y)
+
+    def border(self, event):
+        if event.type == "4":
+            if self.click:
+                self.itemconfig(self.rect, fill=self.btnpressclr, )
+            if self.clicked is not None:
+                self.clicked()
+        else:
+            self.itemconfig(self.rect, fill=self.btnbackground)
+
+def add_corners(im, rad):
+    circle = Image.new('L', (rad * 2, rad * 2), 0)
+    draw = ImageDraw.Draw(circle)
+    draw.ellipse((0, 0, rad * 2, rad * 2), fill=255)
+    alpha = Image.new('L', im.size, "white")
+    w, h = im.size
+    alpha.paste(circle.crop((0, 0, rad, rad)), (0, 0))
+    alpha.paste(circle.crop((0, rad, rad, rad * 2)), (0, h - rad))
+    alpha.paste(circle.crop((rad, 0, rad * 2, rad)), (w - rad, 0))
+    alpha.paste(circle.crop((rad, rad, rad * 2, rad * 2)), (w - rad, h - rad))
+    im.putalpha(alpha)
+    return im
 
 class App():
     def __init__(self):
@@ -19,8 +139,8 @@ class App():
         self.line_options = {'fill': 'black'}
 
         #конфигурируем панель управления
-        self.fr_ctrl = tk.Frame(bg='#CFCFCF', width=100, height=100)
-        self.fr_ctrl.pack(fill='both', side='left')
+        self.fr_ctrl = tk.Frame(width=self.root.winfo_width(), height=100)
+        self.fr_ctrl.pack(side='left', fill='y')
 
         #область рисования
         self.fr_draw = tk.Frame(width=100, height=200)
@@ -33,68 +153,87 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Arial 26'
-        self.bth = 5
-        self.btw = 13
+        self.btfont = 'Jost 24'
+        self.bth = 100
+        self.btw = 20
+        self.pad = 10
+        self.btclr = '#932525'
+        self.btpress = '#e77774'
+        self.bttextclr = 'white'
+        
+        self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((imgh, imgw))))
+        self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
+        self.points_image_panel.pack(side='top', fill='both', pady=self.pad)
+        
+        self.status_drawing = RoundedFrame(master=self.fr_ctrl, 
+                                            width=self.btw, 
+                                            height=self.bth - 25, 
+                                            btnbackground='red', 
+                                            bg='red', 
+                                            click=False)
+        self.status_drawing.pack(side='top', fill='both', pady=self.pad)
+        self.now_clr = 'red'
+        
+        self.fr_status = tk.Frame(self.fr_ctrl)
+        self.fr_status.pack(side='top', fill='both', pady=self.pad)
 
         #кнопка очистки
-        self.bt_del = tk.Button(self.fr_ctrl, 
+        self.bt_del = RoundedFrame(self.fr_ctrl,
                                 text='Очистить', 
-                                command=self.delete, 
-                                relief='groove',
-                                height=self.bth, 
-                                width=self.btw, 
-                                font=self.btfont)
-        self.bt_del.pack(fill='both', side='top')
+                                clicked=self.delete,
+                                btnbackground=self.btclr,
+                                btnforeground=self.bttextclr,
+                                btnpressclr=self.btpress,
+                                font=self.btfont,
+                                height=self.bth,
+                                width=self.btw)
+        self.bt_del.pack(fill='both', side='top', pady=self.pad)
 
         #всплывающее окно с изменением цвета
-        self.fr_clr_set = tk.Frame(relief='groove')
         self.clrs = ['red', 'green', 'blue', 'black', 'gray', 'yellow', 'brown', 'purple', 'cyan', 'white']
         self.rgbclrs = {x: name_to_rgb(x) for x in self.clrs}
 
-        #всплывающее окно изменения толщины
-        self.fr_wd_set = None
-
         #кнопка изменения толщины
-        self.bt_set_wd = tk.Button(self.fr_ctrl, 
-                                   text='Толщина', 
-                                   command=self.build_wd_popup, 
-                                   relief='groove', 
-                                   height=self.bth, 
-                                   width=self.btw, 
-                                   font=self.btfont)
-        self.bt_set_wd.pack(side='top', fill='both')
+        self.bt_set_wd = RoundedFrame(self.fr_ctrl, 
+                                       text='Толщина', 
+                                       clicked=self.setup_wd_popup, 
+                                       relief='groove', 
+                                       height=self.bth, 
+                                       btnpressclr=self.btpress,
+                                       btnforeground=self.bttextclr,
+                                       width=self.btw, 
+                                       btnbackground=self.btclr,
+                                       font=self.btfont)
+        self.bt_set_wd.pack(side='top', fill='both', pady=self.pad)
+        
+        self.fr_wd_set = RoundedFrame(btncontour='#a72525', btncontourwidth=5, width=200, click=False)
+        
+        for i in range(4, 15, 2):
+            cv = tk.Canvas(self.fr_wd_set, width=200, height=40, bg='white')
+            line = tk.Frame(cv, height=i, width=190, bg=self.line_options['fill'])
+            cv.bind('<Button-1>', lambda x, k = i: self.change_width(k))
+            cv.grid(row=i // 2, column=0, padx=10, pady=12)
+            line.bind('<Button-1>', lambda x, k = i: self.change_width(k))
+            line.pack(padx=5, pady=10)
 
         #кнопка генерации
-        self.bt_gen = tk.Button(self.fr_ctrl, 
-                                text='Готово!', 
-                                command=lambda: 1, 
-                                height=self.bth, 
-                                width=self.btw, 
-                                font=self.btfont)
-        self.bt_gen.pack(side='top', fill='both')
-        
-        self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', width=250)
-        self.status_drawing.pack(side='top', fill='both')
-        self.now_clr = 'red'
-
-        #удаление всплывающих окон
-        self.root.bind('<Button-1>', lambda x: self.del_popups())
+        self.bt_gen = RoundedFrame(self.fr_ctrl,
+                                    btnbackground=self.btclr,
+                                    btnforeground=self.bttextclr,
+                                    text='Готово!', 
+                                    height=self.bth, 
+                                    btnpressclr=self.btpress,
+                                    width=self.btw, 
+                                    font=self.btfont)
+        self.bt_gen.pack(side='top', fill='both', pady=self.pad)
 
         #картинка, чтобы затем генерировать
         self.image = Image.new("RGB", (512, 512), (255, 255, 255))
         self.draw = ImageDraw.Draw(self.image)
         
-        self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((320, 240))))
-        self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
-        self.points_image_panel.pack(side='bottom', fill='both')
-        
         #предыдущие высота и ширина canvas
         self.prevw = 0
         self.prevh = 0
-        
-        self.fr_status = tk.Frame(self.fr_ctrl)
-        self.fr_status.pack(side='left', fill='both', expand=True)
         
         self.text_lb = tk.Label(self.fr_status, relief='groove')
         
@@ -110,19 +249,25 @@ class App():
                                     {'side': 'left', 'sticky': 'ns'})],
                         'sticky': 'nswe'}),
                     ('Horizontal.Progressbar.label', {'sticky': ''})])
-        self.style.configure('text.Horizontal.TProgressbar', text=f'0/{self.progressmax}', background='yellow', font='Montserrat 20')
+        self.style.configure('text.Horizontal.TProgressbar', text=f'0/{self.progressmax}', background='cyan', font='Jost 20')
 
         self.progressbar = Progressbar(self.fr_progressbar, style='text.Horizontal.TProgressbar', length=200, maximum=self.progressmax)
-        self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Times 18')
+        self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Jost 16')
 
         self.actions = []
+        
+        self.bt_del.bind('<Button-1>', lambda x: self.del_popups())
+        self.bt_gen.bind('<Button-1>', lambda x: self.del_popups())
+        self.fr_ctrl.bind('<Button-1>', lambda x: self.del_popups())
+        self.fr_status.bind('<Button-1>', lambda x: self.del_popups())
+        self.points_image_panel.bind('<Button-1>', lambda x: self.del_popups())
+        self.status_drawing.bind('<Button-1>', lambda x: self.del_popups())
+    
+    def setup_wd_popup(self):
+        self.fr_wd_set.place(x=self.bt_set_wd.winfo_width() + 5, y=self.bt_set_wd.winfo_y() - 100)
 
     def del_popups(self):
-        if self.fr_wd_set is not None:
-            self.fr_wd_set.place_forget()
-            self.fr_wd_set.destroy()
-            self.fr_wd_set = None
-        self.fr_clr_set.place_forget()
+        self.fr_wd_set.place_forget()
         
     def change_status(self):
         if self.now_clr == 'red':
@@ -131,34 +276,24 @@ class App():
             self.now_clr = 'yellow'
         else:
             self.now_clr = 'red'
-        self.status_drawing.configure(bg=self.now_clr)
+        self.rect_status.configure(fill=self.now_clr)
         
     def progressbar_step(self, amount):        
         self.progressval = (self.progressval + amount) % (self.progressmax + 1)
+        if (self.progressval == 0):
+            self.progressval = 1
         self.style.configure('text.Horizontal.TProgressbar', text=f'{self.progressval}/{self.progressmax}')
         self.progressbar.step(amount)
         
     def setup_progressbar(self):
         self.text_lb.pack_forget()
-    
         
-        self.fr_progressbar.pack(anchor='s', fill='x', expand=True, padx=15)
+        self.fr_progressbar.pack(anchor='s', fill='x', padx=15, pady=2)
         self.fr_progressbar.pack_propagate(False)
         
-        self.progressbar.pack(fill='both', expand=True)
+        self.progressbar.pack(fill='both')
         self.lb_progressbar.pack()
-        
-    def build_wd_popup(self):
-        self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
-        for i in range(2, 15, 2):
-            cv = tk.Frame(self.fr_wd_set, width=self.bt_set_wd.winfo_width() - 10, height=40, relief='groove', border=5)
-            line = tk.Frame(cv, height=i, width=self.bt_set_wd.winfo_width() - 30, bg=self.line_options['fill'])
-            cv.bind('<Button-1>', lambda x, k = i: self.change_width(k))
-            cv.grid(row=i // 2, column=0)
-            line.bind('<Button-1>', lambda x, k = i: self.change_width(k))
-            line.pack(padx=10, pady=10)
-        self.fr_wd_set.place(x=self.bt_del.winfo_width() + self.bt_set_clr.winfo_width(), 
-                             y=self.fr_ctrl.winfo_height())
+        self.lb_progressbar.pack()
 
     def set_start(self, cords):
         if isinstance(cords, tk.Event):
@@ -166,6 +301,7 @@ class App():
         else:
             x, y = cords
         self.line_points.append((x, y))
+        self.del_popups()
 
     def draw_line(self, cords):
         if isinstance(cords, tk.Event):
@@ -202,6 +338,7 @@ class App():
         if image is not None:
             image = Image.fromarray(image.astype('uint8'))
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            image = add_corners(image, 25)
             self.points_image = ImageTk.PhotoImage(image)
             self.points_image_panel.configure(image=self.points_image)
         self.root.update()
@@ -228,7 +365,7 @@ class App():
         self.display_img = ImageTk.PhotoImage(img)
         self.image_panel = tk.Label(self.canvas, image=self.display_img)
         self.image_panel.pack(side="bottom", fill="both", expand="yes")
-from skimage.transform import resize
+
 if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
     app = App()
@@ -239,6 +376,6 @@ if __name__ == '__main__':
             break
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         app.progressbar_step(1)
-        app.update(resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255)
+        app.update(resize(img, (imgh, imgw)) * 255)
     vid.release()
     

@@ -8,3 +8,4 @@ __pycache__/
 *.bak
 build/
 mlmodels/speech_v0.9.3/
+.venv/
