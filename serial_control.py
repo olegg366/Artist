@@ -4,33 +4,28 @@ import os
 
 os.system('echo Dragon2009 | sudo -S chmod 666 /dev/ttyACM0')
 
-DOWN = 2000
-UP = 1000
-
 port = "/dev/ttyACM0"  
 baudrate = 115200 
 
 speed = 8000
 
 def servo(ser, n):
-    cnt = 10
-    if n == UP:
-        cnt = 1
-    for i in range(cnt):
-        ser.write(b'M42 P12 S255 T1\n')
-        sleep(n / 1000000)
-        ser.write(b'M42 P12 S0 T1\n')
+    if n == 'up':
+        ser.write('M280 P0 S90\n'.encode())
+    else:
+        ser.write('M280 P0 S135\n'.encode())
         
 def get_gcode(t: list):
     i = 2
-    k = 2
+    k = 1
     ans = [f'G1 X{t[0][0] / k} Y{t[0][1] / k} F{speed * 2}\n', 'down']
     while i < len(t):
         while i < len(t) and t[i][0] != 1e9:
-            ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
+            if abs(t[i][0]) != 1e9:
+                ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
             i += 1
         ans += ['up']
-        if i < len(t) - 1:
+        if i < len(t) - 1 and abs(t[i + 1][0]) != 1e9:
             ans += [f'G1 X{t[i + 1][0] / k} Y{t[i + 1][1] / k} F{speed * 2}\n']
         ans += ['down']
         i += 3
@@ -41,15 +36,13 @@ def send_gcode(gcodes: list):
     sleep(2)
     ser.write(b'G90\n')
     prevx, prevy = 0, 0
-    for gcode in gcodes:
-        print(gcode)
-        if gcode == 'up':
-            servo(ser, UP)
-            sleep(0.2)
-        elif gcode == 'down':
-            servo(ser, DOWN)
-            sleep(0.2)
-        else:
+    try:
+        for gcode in gcodes:
+            print(gcode)
+            if (gcode[0] != 'G'):
+                servo(ser, gcode)
+                sleep(0.2)
+                continue
             if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
                 continue
             ser.write(gcode.encode())
@@ -57,6 +50,10 @@ def send_gcode(gcodes: list):
             d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
             sleep(d + 0.2)
             prevx, prevy = gcode[0], gcode[1]
+    except KeyboardInterrupt:
+        pass
+    servo(ser, 'up')
+    ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()
 
 def dist(ax, ay, bx, by):
@@ -69,14 +66,12 @@ if __name__ == '__main__':
     try:
         while True:
             n = input()
-            if n == 'up':
-                servo(ser, UP)
-            elif n == 'down':
-                servo(ser, DOWN)
-            elif n[0] == 'X' or n[0] == 'Y':
+            if n[0] == 'X' or n[0] == 'Y':
                 ser.write(('G1 ' + n + '\n').encode())
-            else:
-                ser.write((n + '\n').encode())
+            elif n in ['up', 'down']:
+                servo(ser, n)
+                
     except KeyboardInterrupt:
-        pass
+        servo(ser, 'up')
+        ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()

@@ -20,7 +20,7 @@ class App():
 
         #конфигурируем панель управления
         self.fr_ctrl = tk.Frame(bg='#CFCFCF', width=100, height=100)
-        self.fr_ctrl.pack(fill='both')
+        self.fr_ctrl.pack(fill='both', side='left')
 
         #область рисования
         self.fr_draw = tk.Frame(width=100, height=200)
@@ -33,7 +33,7 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Times 26'
+        self.btfont = 'Arial 26'
         self.bth = 5
         self.btw = 13
 
@@ -45,30 +45,12 @@ class App():
                                 height=self.bth, 
                                 width=self.btw, 
                                 font=self.btfont)
-        self.bt_del.pack(fill='both', side='left')
+        self.bt_del.pack(fill='both', side='top')
 
         #всплывающее окно с изменением цвета
         self.fr_clr_set = tk.Frame(relief='groove')
         self.clrs = ['red', 'green', 'blue', 'black', 'gray', 'yellow', 'brown', 'purple', 'cyan', 'white']
         self.rgbclrs = {x: name_to_rgb(x) for x in self.clrs}
-        for a in range(2):
-            self.fr_clr_set.rowconfigure(a, minsize=50)
-            for b in range(5):
-                self.fr_clr_set.columnconfigure(b, minsize=50)
-                newfr = tk.Frame(master=self.fr_clr_set, bg=self.clrs[a * 5 + b], width=50, height=50, relief='groove')
-                newfr.bind('<Button-1>', lambda x, k = a * 5 + b: self.set_color(k))
-                newfr.grid(row=a, column=b, padx=5, pady=5)
-
-        #кнопка изменения цвета
-        self.bt_set_clr = tk.Button(self.fr_ctrl, 
-                                    text='Цвет', 
-                                    command=lambda: self.fr_clr_set.place(x=self.bt_del.winfo_width(), 
-                                                                          y=self.fr_ctrl.winfo_height()), 
-                                    relief='groove', 
-                                    height=self.bth, 
-                                    width=self.btw, 
-                                    font=self.btfont)
-        self.bt_set_clr.pack(side='left', fill='both')
 
         #всплывающее окно изменения толщины
         self.fr_wd_set = None
@@ -81,7 +63,7 @@ class App():
                                    height=self.bth, 
                                    width=self.btw, 
                                    font=self.btfont)
-        self.bt_set_wd.pack(side='left', fill='both')
+        self.bt_set_wd.pack(side='top', fill='both')
 
         #кнопка генерации
         self.bt_gen = tk.Button(self.fr_ctrl, 
@@ -90,10 +72,10 @@ class App():
                                 height=self.bth, 
                                 width=self.btw, 
                                 font=self.btfont)
-        self.bt_gen.pack(side='left', fill='both')
+        self.bt_gen.pack(side='top', fill='both')
         
         self.status_drawing = tk.Frame(self.fr_ctrl, bg='red', width=250)
-        self.status_drawing.pack(side='left', fill='both')
+        self.status_drawing.pack(side='top', fill='both')
         self.now_clr = 'red'
 
         #удаление всплывающих окон
@@ -105,7 +87,7 @@ class App():
         
         self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((320, 240))))
         self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
-        self.points_image_panel.pack(side='right', fill='both')
+        self.points_image_panel.pack(side='bottom', fill='both')
         
         #предыдущие высота и ширина canvas
         self.prevw = 0
@@ -131,7 +113,7 @@ class App():
         self.style.configure('text.Horizontal.TProgressbar', text=f'0/{self.progressmax}', background='yellow', font='Montserrat 20')
 
         self.progressbar = Progressbar(self.fr_progressbar, style='text.Horizontal.TProgressbar', length=200, maximum=self.progressmax)
-        self.lb_progressbar = tk.Label(self.fr_status, text='Идет обработка, подождите...', font='Times 18', bg='orange')
+        self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Times 18')
 
         self.actions = []
 
@@ -164,13 +146,11 @@ class App():
         self.fr_progressbar.pack_propagate(False)
         
         self.progressbar.pack(fill='both', expand=True)
-        self.lb_progressbar.pack(anchor='center')
+        self.lb_progressbar.pack()
         
     def build_wd_popup(self):
         self.fr_wd_set = tk.Frame(relief='groove', borderwidth=5, width=100)
-        # self.fr_wd_set.columnconfigure(0, minsize=15)
         for i in range(2, 15, 2):
-            # self.fr_wd_set.rowconfigure(i // 2, minsize=50)
             cv = tk.Frame(self.fr_wd_set, width=self.bt_set_wd.winfo_width() - 10, height=40, relief='groove', border=5)
             line = tk.Frame(cv, height=i, width=self.bt_set_wd.winfo_width() - 30, bg=self.line_options['fill'])
             cv.bind('<Button-1>', lambda x, k = i: self.change_width(k))
@@ -198,7 +178,6 @@ class App():
         self.line_id = self.canvas.create_line(self.line_points, **self.line_options)
         self.draw.line(self.line_points, **self.line_options)
         self.actions.append(lambda: self.draw.line(self.line_points, **self.line_options))
-        # print(self.canvas.find_all())
 
     def end_line(self):
         self.line_points.clear()
