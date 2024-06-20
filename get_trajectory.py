@@ -95,9 +95,9 @@ def get_colors(img):
     else:
         t = canny(b)
         
-    t = binary_dilation(t, square(5))
+    t = binary_dilation(t, square(2))
     nz = np.nonzero(t)
-    t = t[np.min(nz[0]) - 10:np.max(nz[0]) + 10, np.min(nz[1]) - 10:np.max(nz[1]) + 10]
+    t = t[max(0, np.min(nz[0]) - 10):min(t.shape[0], np.max(nz[0]) + 10), max(0, np.min(nz[1]) - 10):min(t.shape[1], np.max(nz[1]) + 10)]
     return t
         
 def draw_img(img: Image):
@@ -114,27 +114,27 @@ def draw_img(img: Image):
     for reg in rgs:
         idx += 1
         regimg = reg.image
-        cords = compute_image(regimg, 4, *reg.bbox[:2])
+        cords = compute_image(regimg, 2, *reg.bbox[:2])
         trajectory.extend(cords)
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
     # print(trajectory)
-    # trajectory = np.array(trajectory)
-    # ax = plt.subplot()
-    # ax.imshow(img, cmap='gray')
-    # i = 0
-    # end = 0
-    # while i < len(trajectory):
-    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
-    #         i += 1
-    #     i += 1
-    #     end = i
-    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
-    #         i += 1
-    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    # plt.get_current_fig_manager().full_screen_toggle()
-    # plt.show()
+    trajectory = np.array(trajectory)
+    ax = plt.subplot()
+    ax.imshow(img, cmap='gray')
+    i = 0
+    end = 0
+    while i < len(trajectory):
+        while i < len(trajectory) and trajectory[i, 0] != -1e9:
+            i += 1
+        i += 1
+        end = i
+        while i < len(trajectory) and trajectory[i, 0] != 1e9:
+            i += 1
+        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+    plt.get_current_fig_manager().full_screen_toggle()
+    plt.show()
     
     print('sending gcode...')
     gcode = get_gcode(trajectory)
@@ -142,6 +142,6 @@ def draw_img(img: Image):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/robot.png')
-    img = resize(img, (int(img.shape[0] * (800 / img.shape[1])), 800))
+    img = imread('images/gen.png')
+    # img = resize(img, (int(img.shape[0] * (800 / img.shape[1])), 800))
     draw_img(img)

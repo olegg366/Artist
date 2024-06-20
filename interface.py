@@ -16,7 +16,7 @@ class RoundedFrame(tk.Canvas):
     def __init__(self, 
                  master=None, 
                  text:str="", 
-                 radius=25, 
+                 radius=35, 
                  btnforeground="#000000", 
                  btnpressclr="d2d6d3", 
                  font='Arial 30', 
@@ -109,11 +109,13 @@ class RoundedFrame(tk.Canvas):
     def border(self, event):
         if event.type == "4":
             if self.click:
-                self.itemconfig(self.rect, fill=self.btnpressclr, )
+                self.itemconfig(self.rect, fill=self.btnpressclr)
             if self.clicked is not None:
                 self.clicked()
         else:
             self.itemconfig(self.rect, fill=self.btnbackground)
+    def change_color(self, clr):
+        self.itemconfig(self.rect, fill=clr)
 
 def add_corners(im, rad):
     circle = Image.new('L', (rad * 2, rad * 2), 0)
@@ -153,11 +155,11 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Jost 24'
-        self.bth = 100
+        self.btfont = 'Arial 50 bold'
+        self.bth = 150
         self.btw = 20
         self.pad = 10
-        self.btclr = '#932525'
+        self.btclr = '#6d2222'
         self.btpress = '#e77774'
         self.bttextclr = 'white'
         
@@ -220,11 +222,12 @@ class App():
         self.bt_gen = RoundedFrame(self.fr_ctrl,
                                     btnbackground=self.btclr,
                                     btnforeground=self.bttextclr,
+                                    clicked=self.gen,
                                     text='Готово!', 
                                     height=self.bth, 
                                     btnpressclr=self.btpress,
                                     width=self.btw, 
-                                    font=self.btfont)
+                                    font="Arial 55 bold")
         self.bt_gen.pack(side='top', fill='both', pady=self.pad)
 
         #картинка, чтобы затем генерировать
@@ -255,6 +258,7 @@ class App():
         self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Jost 16')
 
         self.actions = []
+        self.flag_generate = 0
         
         self.bt_del.bind('<Button-1>', lambda x: self.del_popups())
         self.bt_gen.bind('<Button-1>', lambda x: self.del_popups())
@@ -269,6 +273,9 @@ class App():
     def del_popups(self):
         self.fr_wd_set.place_forget()
         
+    def gen(self):
+        self.flag_generate = 1
+        
     def change_status(self):
         if self.now_clr == 'red':
             self.now_clr = 'green'
@@ -276,7 +283,7 @@ class App():
             self.now_clr = 'yellow'
         else:
             self.now_clr = 'red'
-        self.rect_status.configure(fill=self.now_clr)
+        self.status_drawing.change_color(self.now_clr)
         
     def progressbar_step(self, amount):        
         self.progressval = (self.progressval + amount) % (self.progressmax + 1)
@@ -338,7 +345,7 @@ class App():
         if image is not None:
             image = Image.fromarray(image.astype('uint8'))
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            image = add_corners(image, 25)
+            image = add_corners(image, 35)
             self.points_image = ImageTk.PhotoImage(image)
             self.points_image_panel.configure(image=self.points_image)
         self.root.update()
@@ -376,6 +383,7 @@ if __name__ == '__main__':
             break
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         app.progressbar_step(1)
+        app.change_status()
         app.update(resize(img, (imgh, imgw)) * 255)
     vid.release()
     

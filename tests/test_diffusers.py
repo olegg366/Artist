@@ -32,11 +32,12 @@ pipe.enable_xformers_memory_efficient_attention()
 pipe.unet.to(memory_format=torch.channels_last)
 pipe.vae.to(memory_format=torch.channels_last)
 
-prompt = "a photo of an astronaut riding a horse on mars"
+prompt = "cat, single color, marker art"
+negative_prompt = "many lines"
 img =  Image.open('images/scribble.png')
 
 generator = torch.manual_seed(2023)
 
-image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, generator=generator).images[0]
+image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, negative_prompt=negative_prompt, generator=generator).images[0]
 
-image.save('images/out.png')
+image.save('images/gen.png')

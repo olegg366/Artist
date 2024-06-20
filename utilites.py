@@ -10,6 +10,8 @@ from time import time as tt
 import numpy as np
 import cv2
 
+from interface import App
+
 MARGIN = 10  # pixels
 FONT_SIZE = 1
 FONT_THICKNESS = 1
@@ -74,7 +76,7 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
   return annotated_image
 
-def draw(tp, time, cnt, flag, cords, endflag):
+def draw(tp, time, cnt, flag, cords, endflag, app: App):
     if tp == 'Click' and flag:
         cnt['clean'] = 0
         cnt['end'] = 0
@@ -100,10 +102,7 @@ def draw(tp, time, cnt, flag, cords, endflag):
     elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
         cnt['end'] = 0
         if cnt['clean'] > 10:
-            pg.moveTo(155, 140)
-            pg.click()
-
-            pg.moveTo(75, 216)
+            app.delete()
             time['clean'] = tt()
             cnt['clean'] = 0
         else:
@@ -117,8 +116,6 @@ def draw(tp, time, cnt, flag, cords, endflag):
                     cnt['end'] = 0
                     time['start'] = tt()
                 else:
-                    # ms.move(638, 138)
-                    # pg.click()
                     endflag = True
                     time['start'] = tt()
                     cnt['end'] = 0

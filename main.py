@@ -175,11 +175,11 @@ if __name__ == '__main__':
                     inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
                     pred = trt_func(**inp)['dense_5']
                     gt = classes[np.argmax(pred[0])]
-                flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end)
+                flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end, app)
                 if flagn != flag and not end:
                     app.change_status()
                 flag = flagn
-                if end:
+                if end or app.flag_generate:
                     flag = False
                     end = False
                     cnt = {
@@ -194,14 +194,15 @@ if __name__ == '__main__':
                     }
                     scribble = app.image
                     scribble.save('images/scribble.png')
-                    # prompt, rus = recognize(app)
+                    prompt, rus = recognize(app)
                     
-                    app.print_text('Вы сказали: ' + 'дерево')
+                    app.print_text('Вы сказали: ' + rus)
                     app.change_status()
                     app.setup_progressbar()
                     app.update()
                     
-                    gen = generate(scribble, 'tree' + ', sketch art, one color')
+                    gen = generate(scribble, prompt + ', single color, marker art')
+                    app.flag_generate = 0
                     
                     gen.save('images/gen.png')
                     
