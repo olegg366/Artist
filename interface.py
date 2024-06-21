@@ -5,6 +5,7 @@ from PIL import ImageTk, Image, ImageDraw
 from webcolors import name_to_rgb
 from multiprocessing import Process
 from time import sleep
+from textwrap import wrap
 from skimage.transform import resize
 import cv2
 import numpy as np
@@ -238,7 +239,7 @@ class App():
         self.prevw = 0
         self.prevh = 0
         
-        self.text_lb = tk.Label(self.fr_status, relief='groove')
+        self.text_lb = tk.Label(self.fr_status)
         
         self.fr_progressbar = tk.Frame(self.fr_status, height=60)
         
@@ -266,6 +267,8 @@ class App():
         self.fr_status.bind('<Button-1>', lambda x: self.del_popups())
         self.points_image_panel.bind('<Button-1>', lambda x: self.del_popups())
         self.status_drawing.bind('<Button-1>', lambda x: self.del_popups())
+        
+        self.print_instructions()
     
     def setup_wd_popup(self):
         self.fr_wd_set.place(x=self.bt_set_wd.winfo_width() + 5, y=self.bt_set_wd.winfo_y() - 100)
@@ -276,6 +279,35 @@ class App():
     def gen(self):
         self.flag_generate = 1
         
+    def print_instructions(self):
+        text = ["Это - робот-художник. Вы можете нарисовать в воздухе что угодно, сказать ему, что это, он создаст из вашего рисунка шедевр и нарисует его.",
+                "1. Чтобы начать рисовать, покажите большой палец.",
+                "2. Поднятый указательный палец будет двигать курсор.",
+                '3. Чтобы "нажать мышкой" или рисовать в области рисования, соедините указательный и большой пальцы.',
+                "4. Чтобы очистить все поле рисования, покажите открытую ладонь.",
+                "5. Когда закончите рисовать, покажите ещё раз большой палец. ",
+                '6. Скажите, что Вы нарисовали, когда на экране появится надпись "Говорите..."',
+                "7. Ожидайте рисунка =D"]
+        self.instruction_lb = tk.Label(self.canvas, font='Jost 37', justify='left', anchor="e")
+        self.instruction_lb.grid(ipadx=10)
+        for i, sentence in enumerate(text):
+            self.instruction_lb['text'] = sentence
+            self.root.update()
+            if self.instruction_lb.winfo_width() > self.canvas.winfo_width():
+                average_char_width = self.instruction_lb.winfo_width() / len(sentence)
+                chars_per_line = int(self.canvas.winfo_width() / average_char_width)
+                while self.instruction_lb.winfo_width() > self.canvas.winfo_width():  
+                    wrapped_text = '\n'.join(wrap(sentence, chars_per_line))
+                    self.instruction_lb['text'] = wrapped_text
+                    self.root.update()
+                    chars_per_line -= 1
+                text[i] = wrapped_text
+        self.instruction_lb['text'] = '\n'.join(text)
+        
+    def remove_instructions(self):
+        self.instruction_lb.grid_forget()
+        self.root.update()
+        
     def change_status(self):
         if self.now_clr == 'red':
             self.now_clr = 'green'
@@ -284,6 +316,7 @@ class App():
         else:
             self.now_clr = 'red'
         self.status_drawing.change_color(self.now_clr)
+        self.root.update()
         
     def progressbar_step(self, amount):        
         self.progressval = (self.progressval + amount) % (self.progressmax + 1)
@@ -291,6 +324,7 @@ class App():
             self.progressval = 1
         self.style.configure('text.Horizontal.TProgressbar', text=f'{self.progressval}/{self.progressmax}')
         self.progressbar.step(amount)
+        self.root.update()
         
     def setup_progressbar(self):
         self.text_lb.pack_forget()
@@ -301,6 +335,8 @@ class App():
         self.progressbar.pack(fill='both')
         self.lb_progressbar.pack()
         self.lb_progressbar.pack()
+        
+        self.root.update()
 
     def set_start(self, cords):
         if isinstance(cords, tk.Event):
@@ -363,6 +399,7 @@ class App():
         self.lb_progressbar.pack_forget()
         self.text_lb.pack(side='left', expand=True, fill='both')
         self.text_lb.configure(text=text, font=self.btfont)
+        self.root.update()
                 
     def remove_img(self):
         self.image_panel.pack_forget()
@@ -377,6 +414,7 @@ if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
     app = App()
     app.setup_progressbar()
+    app.print_instructions()
     while True:
         res, img = vid.read()
         if not res:

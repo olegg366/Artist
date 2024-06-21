@@ -4,7 +4,10 @@ import numpy as np
 
 model_path = 'mlmodels/static'
 
-x_train, x_test, y_train, y_test = train_test_split(np.load('dataset/static_X.npy'), np.load('dataset/static_Y.npy'), test_size=0.3, random_state=42)
+x_train, x_test, y_train, y_test = train_test_split(np.load('dataset/static_X.npy'), 
+                                                    np.load('dataset/static_Y.npy'), 
+                                                    test_size=0.3,
+                                                    random_state=42)
 
 converter = trt.TrtGraphConverterV2(
    input_saved_model_dir=model_path,

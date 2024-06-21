@@ -83,6 +83,7 @@ def generate(img, prompt):
 
     image = pipe(prompt, img, 
                  num_inference_steps=50, 
+                 negative_prompt="many lines"
                  height=512, width=512, 
                  generator=generator, 
                  callback_on_step_end=callback).images[0]
@@ -159,6 +160,7 @@ if __name__ == '__main__':
             
             detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
             if detection.hand_landmarks:
+                app.remove_instructions()
                 lmks = get_landmarks(detection)
                 x, y = lmks[0, 8, :2]
                 x *= img.shape[1]
@@ -199,16 +201,14 @@ if __name__ == '__main__':
                     app.print_text('Вы сказали: ' + rus)
                     app.change_status()
                     app.setup_progressbar()
-                    app.update()
                     
-                    gen = generate(scribble, prompt + ', single color, marker art')
+                    gen = generate(scribble, prompt + ', single color, childs drawing')
                     app.flag_generate = 0
                     
                     gen.save('images/gen.png')
                     
                     app.display(gen)
                     app.change_status()
-                    app.update()
                     
                     draw_img(gen)
                     try:

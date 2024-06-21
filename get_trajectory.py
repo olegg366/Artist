@@ -1,20 +1,20 @@
 import os
 
 src = open('trajectory.cpp', 'r')
-dst = open('trajectory.prev', 'r')
+dst = open('lib/trajectory.prev', 'r')
 s, d = src.read(), dst.read()
 try:
     if s != d:
         print('compiling...')
         dst.close()
         
-        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc61 -std=c++17 -c trajectory.cpp -o trajectory.o')
-        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc61 -stdpar trajectory.o -o trajectory.so')
+        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc61 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
+        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc61 -stdpar lib/trajectory.o -o lib/trajectory.so')
         
         if err1: exit(err1)
         if err2: exit(err2)
         
-        dst = open('trajectory.prev', 'w')
+        dst = open('lib/trajectory.prev', 'w')
         dst.write(s)
         print('compiled')
 finally:
@@ -39,7 +39,7 @@ import ctypes as c
 
 from serial_control import get_gcode, send_gcode
 
-lib = c.CDLL('/home/olegg/Artist/trajectory.so')
+lib = c.CDLL('/home/olegg/Artist/lib/trajectory.so')
 
 DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
                                    ndim=2,
@@ -143,5 +143,4 @@ def draw_img(img: Image):
     
 if __name__ == '__main__':
     img = imread('images/gen.png')
-    # img = resize(img, (int(img.shape[0] * (800 / img.shape[1])), 800))
     draw_img(img)
