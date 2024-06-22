@@ -83,7 +83,7 @@ def generate(img, prompt):
 
     image = pipe(prompt, img, 
                  num_inference_steps=50, 
-                 negative_prompt="many lines"
+                 negative_prompt="many lines",
                  height=512, width=512, 
                  generator=generator, 
                  callback_on_step_end=callback).images[0]

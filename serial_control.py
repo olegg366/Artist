@@ -14,6 +14,7 @@ def servo(ser, n):
         ser.write('M280 P0 S90\n'.encode())
     else:
         ser.write('M280 P0 S135\n'.encode())
+    ser.read_until(b'ok\n')
         
 def get_gcode(t: list):
     i = 2
@@ -46,6 +47,7 @@ def send_gcode(gcodes: list):
             if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
                 continue
             ser.write(gcode.encode())
+            ser.read_until(b'ok\n')
             gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
             d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
             sleep(d + 0.2)

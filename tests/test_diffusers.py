@@ -5,7 +5,6 @@ from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler, ControlNetModel
 
 def callback_dynamic_cfg(_, step_index, timestep, callback_kwargs):
-        
         return callback_kwargs
 
 controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 

@@ -409,12 +409,6 @@ extern "C"
         int zero = 0;
         while (neqvii(bimage, zero))
         {
-            // if (it % 1000 == 0)
-            // {
-            //     save(bimage);
-            //     sleep(2);
-            // }
-            // cout << nonzero(bimage).size() << '\n';
             change = 0;
             flagfill = 1;
             for (pair <int, int> dt : deltas2)
