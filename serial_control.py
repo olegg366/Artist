@@ -16,18 +16,17 @@ def servo(ser, n):
         ser.write('M280 P0 S135\n'.encode())
     ser.read_until(b'ok\n')
         
-def get_gcode(t: list):
+def get_gcode(t: list, k=512/180, deltax=0, deltay=0):
     i = 2
-    k = 1
-    ans = [f'G1 X{t[0][0] / k} Y{t[0][1] / k} F{speed * 2}\n', 'down']
+    ans = [f'G1 Y{(t[0][0] / k) + deltay} X{(t[0][1] / k) + deltax} F{speed * 2}\n', 'down']
     while i < len(t):
         while i < len(t) and t[i][0] != 1e9:
             if abs(t[i][0]) != 1e9:
-                ans += [f'G1 X{t[i][0] / k} Y{t[i][1] / k} F{speed}\n']
+                ans += [f'G1 Y{(t[i][0] / k) + deltay} X{(t[i][1] / k) + deltax} F{speed}\n']
             i += 1
         ans += ['up']
         if i < len(t) - 1 and abs(t[i + 1][0]) != 1e9:
-            ans += [f'G1 X{t[i + 1][0] / k} Y{t[i + 1][1] / k} F{speed * 2}\n']
+            ans += [f'G1 Y{(t[i + 1][0] / k) + deltay} X{(t[i + 1][1] / k) + deltax} F{speed * 2}\n']
         ans += ['down']
         i += 3
     return ans
@@ -44,14 +43,14 @@ def send_gcode(gcodes: list):
                 servo(ser, gcode)
                 sleep(0.2)
                 continue
-            if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
+            if gcode == f"G1 Y{prevx} X{prevy} F{speed}": 
                 continue
             ser.write(gcode.encode())
             ser.read_until(b'ok\n')
-            gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
-            d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
-            sleep(d + 0.2)
-            prevx, prevy = gcode[0], gcode[1]
+            gcode = [float(gcode[gcode.index('Y') + 1:gcode.index('X') - 1]), float(gcode[gcode.index('X') + 1:gcode.index('F') - 1])]
+            d = dist(prevx, prevy, gcode[1], gcode[0]) / (speed / 60)
+            sleep(d + 0.1)
+            prevy, prevx = gcode[0], gcode[1]
     except KeyboardInterrupt:
         pass
     servo(ser, 'up')
@@ -72,6 +71,8 @@ if __name__ == '__main__':
                 ser.write(('G1 ' + n + '\n').encode())
             elif n in ['up', 'down']:
                 servo(ser, n)
+            else:
+                ser.write((n + '\n').encode())
                 
     except KeyboardInterrupt:
         servo(ser, 'up')

@@ -77,7 +77,7 @@ def generate(img, prompt):
     pipe.unet.to(memory_format=torch.channels_last)
     pipe.vae.to(memory_format=torch.channels_last)
 
-    generator = torch.manual_seed(2023)
+    generator = torch.manual_seed(2024)
     
     print('Succesfully set up stable diffusion.')
 
