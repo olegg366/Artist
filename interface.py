@@ -139,7 +139,7 @@ class App():
 
         self.line_id = None
         self.line_points = []
-        self.line_options = {'fill': 'black'}
+        self.line_options = {'fill': 'black', 'width': 10}
 
         #конфигурируем панель управления
         self.fr_ctrl = tk.Frame(width=self.root.winfo_width(), height=100)

@@ -143,6 +143,6 @@ def draw_img(img, **kwargs):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/RRO.png')
-    img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
+    img = imread('images/money.png')[:, ::-1]
+    # img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
     draw_img(img)
