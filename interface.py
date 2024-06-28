@@ -19,7 +19,7 @@ class RoundedFrame(tk.Canvas):
                  text:str="", 
                  radius=35, 
                  btnforeground="#000000", 
-                 btnpressclr="d2d6d3", 
+                 btnpressclr="#d2d6d3", 
                  font='Jost 20', 
                  btnbackground="#ffffff", 
                  btncontour='',
@@ -177,7 +177,7 @@ class App():
         self.canvas.bind('<B1-Motion>', self.draw_line)
         self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
 
-        self.btfont = 'Arial 50 bold'
+        self.btfont = 'Jost 50 bold'
         self.bth = 150
         self.btw = 20
         self.pad = 10
@@ -260,8 +260,6 @@ class App():
         self.prevw = 0
         self.prevh = 0
         
-        self.text_lb = tk.Label(self.status_drawing)
-        
         self.fr_progressbar = tk.Frame(self.fr_status, height=60)
         
         self.progressval = 0
@@ -278,7 +276,26 @@ class App():
 
         self.progressbar = Progressbar(self.fr_progressbar, style='text.Horizontal.TProgressbar', length=200, maximum=self.progressmax)
         self.lb_progressbar = tk.Label(self.fr_progressbar, text='Идет обработка, подождите...', font='Jost 16')
-
+        
+        self.flag_recognition = 0
+        self.flag_answer = 0
+        
+        self.bt_yes = RoundedFrame(self.fr_status, 
+                                   text="Да", 
+                                   clicked=self.rec,
+                                   click=True,
+                                   font="Jost 30",
+                                   btnbackground=self.btclr,
+                                   btnforeground='white')
+        
+        self.bt_no = RoundedFrame(self.fr_status, 
+                                  text="Нет", 
+                                  font="Jost 30",
+                                  clicked=self.nrec, 
+                                  click=True,
+                                  btnbackground=self.btclr,
+                                  btnforeground='white')
+        
         self.actions = []
         self.flag_generate = 0
         
@@ -299,6 +316,14 @@ class App():
         
     def gen(self):
         self.flag_generate = 1
+    
+    def rec(self):
+        self.flag_recognition = 1
+        self.flag_answer = 1
+    
+    def nrec(self):
+        self.flag_recognition = 0
+        self.flag_answer = 1
         
     def print_instructions(self):
         text = ["- начать/закончить", "- перемещать курсор", "- рисовать", "- очистить все"]
@@ -336,8 +361,16 @@ class App():
         self.progressbar.step(amount)
         self.root.update()
         
+    def check_recognition(self):
+        self.root.update()
+        self.bt_yes.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=self.bt_gen.winfo_height() // 2)
+        self.bt_no.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=self.bt_gen.winfo_height() // 2)
+        self.bt_yes.pack(side='left')
+        self.bt_no.pack(side='left')
+        
     def setup_progressbar(self):
-        self.text_lb.pack_forget()
+        self.bt_yes.pack_forget()
+        self.bt_no.pack_forget()
         
         self.fr_progressbar.pack(anchor='s', fill='x', padx=15, pady=2)
         self.fr_progressbar.pack_propagate(False)
@@ -421,7 +454,8 @@ class App():
 if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
     app = App()
-    app.setup_progressbar()
+    # app.setup_progressbar()
+    app.check_recognition()
     while True:
         res, img = vid.read()
         if not res:
@@ -429,7 +463,8 @@ if __name__ == '__main__':
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         # app.progressbar_step(1)
         # app.change_status()
-        app.print_text("Вы сказали: я нарисовал апельсиновое облако")
+        # app.print_text("Вы сказали: я нарисовал апельсиновое облако")
+        print(app.flag_recognition)
         app.update(resize(img, (imgh, imgw)) * 255)
     vid.release()
     

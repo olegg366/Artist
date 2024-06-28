@@ -104,7 +104,7 @@ def get_colors(img, crop):
 def draw_img(img, crop=False, **kwargs):
     if not isinstance(img, np.ndarray):
         img = np.array(img)
-    img = rotate(img, 90, mode='edge')[:, ::-1]
+    img = rotate(img, 90, mode='edge')[::-1]
     print('getting colors..')
     img = get_colors(img, crop)
     print('got colors')
@@ -145,6 +145,6 @@ def draw_img(img, crop=False, **kwargs):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/what\'s_this_1719511707.8593214.png')
+    img = imread('images/generated/cake_1719505964.8239765.png')
     # img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
     draw_img(img, k=512/370)

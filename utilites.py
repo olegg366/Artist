@@ -109,7 +109,7 @@ def draw(tp, time, cnt, flag, cords, endflag, app: App):
             cnt['clean'] += 1
     else:
         cnt['clean'] = 0
-        if tp == 'Thumb_Up' and tt() - time['start'] > 10: 
+        if tp == 'Thumb_Up' and tt() - time['start'] > 0: 
             if cnt['end'] > 10:
                 if not flag:
                     flag = True
