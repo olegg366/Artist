@@ -101,7 +101,7 @@ def draw(tp, time, cnt, flag, cords, endflag, app: App):
         pg.moveTo(x, y, 0.0, _pause=False)
     elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
         cnt['end'] = 0
-        if cnt['clean'] > 10:
+        if cnt['clean'] > 20:
             app.delete()
             time['clean'] = tt()
             cnt['clean'] = 0
@@ -115,6 +115,7 @@ def draw(tp, time, cnt, flag, cords, endflag, app: App):
                     flag = True
                     cnt['end'] = 0
                     time['start'] = tt()
+                    app.remove_instructions()
                 else:
                     endflag = True
                     time['start'] = tt()

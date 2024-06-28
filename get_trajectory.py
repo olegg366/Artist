@@ -32,7 +32,7 @@ from time import sleep
 
 from skimage.measure import label, regionprops
 from skimage.feature import canny
-from skimage.transform import resize
+from skimage.transform import resize, rotate
 from skimage.morphology import binary_dilation, square
 
 import ctypes as c
@@ -84,7 +84,7 @@ def compute_image(img, d, sx, sy):
 def dispersion(x):
     return ((x - x.mean()) ** 2).sum() / x.size
 
-def get_colors(img):
+def get_colors(img, crop):
     r, g, b = [img[:, :, i] for i in range(3)]
     dr, dg, db = map(dispersion, [r, g, b])
     mx = max(dr, dg, db)
@@ -96,15 +96,17 @@ def get_colors(img):
         t = canny(b)
         
     t = binary_dilation(t, square(5))
-    nz = np.nonzero(t)
-    t = t[max(0, np.min(nz[0]) - 10):min(t.shape[0], np.max(nz[0]) + 10), max(0, np.min(nz[1]) - 10):min(t.shape[1], np.max(nz[1]) + 10)]
+    if crop:
+        nz = np.nonzero(t)
+        t = t[max(0, np.min(nz[0]) - 10):min(t.shape[0], np.max(nz[0]) + 10), max(0, np.min(nz[1]) - 10):min(t.shape[1], np.max(nz[1]) + 10)]
     return t
         
-def draw_img(img, **kwargs):
+def draw_img(img, crop=False, **kwargs):
     if not isinstance(img, np.ndarray):
         img = np.array(img)
+    img = rotate(img, 90, mode='edge')[:, ::-1]
     print('getting colors..')
-    img = get_colors(img)
+    img = get_colors(img, crop)
     print('got colors')
     
     print('getting trajectory...')
@@ -143,6 +145,6 @@ def draw_img(img, **kwargs):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/money.png')[:, ::-1]
+    img = imread('images/what\'s_this_1719511707.8593214.png')
     # img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
-    draw_img(img)
+    draw_img(img, k=512/370)

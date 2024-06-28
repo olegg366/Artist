@@ -12,6 +12,8 @@ speed = 8000
 def servo(ser, n):
     if n == 'up':
         ser.write('M280 P0 S90\n'.encode())
+    elif n == 'maxup':
+        ser.write('M280 P0 S10\n'.encode())
     else:
         ser.write('M280 P0 S135\n'.encode())
     ser.read_until(b'ok\n')
@@ -41,12 +43,13 @@ def send_gcode(gcodes: list):
             print(gcode)
             if (gcode[0] != 'G'):
                 servo(ser, gcode)
-                sleep(0.1)
+                sleep(0.2)
                 continue
             if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
                 continue
             ser.write(gcode.encode())
             ser.read_until(b'ok\n')
+            # spd = float(gcode[gcode.index('F') + 1:-1])
             gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
             d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
             sleep(d + 0.1)
@@ -55,7 +58,7 @@ def send_gcode(gcodes: list):
         pass
     except Exception as e:
         print(e)
-    servo(ser, 'up')
+    servo(ser, 'maxup')
     ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()
 
@@ -71,12 +74,12 @@ if __name__ == '__main__':
             n = input()
             if n[0] == 'X' or n[0] == 'Y':
                 ser.write(('G1 ' + n + '\n').encode())
-            elif n in ['up', 'down']:
+            elif n in ['up', 'down', 'maxup']:
                 servo(ser, n)
             else:
                 ser.write((n + '\n').encode())
                 
     except KeyboardInterrupt:
-        servo(ser, 'up')
+        servo(ser, 'maxup')
         ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()

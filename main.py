@@ -21,8 +21,9 @@ from utilites import draw_landmarks_on_image, draw, get_landmarks, dist
 from interface import App
 from google_speech import recognize
 from get_trajectory import draw_img
+from draw_logo import draw_a5
 
-from time import sleep
+from time import sleep, time
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
@@ -76,16 +77,13 @@ def generate(img, prompt):
 
     pipe.unet.to(memory_format=torch.channels_last)
     pipe.vae.to(memory_format=torch.channels_last)
-
-    generator = torch.manual_seed(2024)
     
     print('Succesfully set up stable diffusion.')
 
     image = pipe(prompt, img, 
                  num_inference_steps=50, 
-                 negative_prompt="many lines",
+                 negative_prompt="many lines, bad anatomy, worst quality, bad quality",
                  height=512, width=512, 
-                 generator=generator, 
                  callback_on_step_end=callback).images[0]
     
     del pipe, controlnet
@@ -119,7 +117,7 @@ if __name__ == '__main__':
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
     options = HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.CPU),
+        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
         running_mode=VisionRunningMode.VIDEO)
     print('Succesfully set up hand landmarker.')
 
@@ -160,7 +158,6 @@ if __name__ == '__main__':
             
             detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
             if detection.hand_landmarks:
-                app.remove_instructions()
                 lmks = get_landmarks(detection)
                 x, y = lmks[0, 8, :2]
                 x *= img.shape[1]
@@ -184,6 +181,7 @@ if __name__ == '__main__':
                 if end or app.flag_generate:
                     flag = False
                     end = False
+                    
                     cnt = {
                         'clean': 0,
                         'end': 0,
@@ -205,16 +203,19 @@ if __name__ == '__main__':
                     gen = generate(scribble, prompt + ', single color, childs drawing')
                     app.flag_generate = 0
                     
-                    gen.save('images/gen.png')
+                    app.print_text('')
+                    app.delete()
+                    app.fr_progressbar.pack_forget()
+                    
+                    gen.save('images/generated/' + prompt.lower().replace(' ', '_') + '_' + str(time()) + '.png')
                     
                     app.display(gen)
-                    app.change_status()
                     
-                    draw_img(gen)
-                    try:
-                        sleep(6000)
-                    except KeyboardInterrupt:
-                        app.remove_img()
+                    sleep(3)
+                    draw_img(gen, k=512/370)
+                    
+                    app.change_status()                   
+                    app.remove_img()
             img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
             app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
             cv2.waitKey(1)

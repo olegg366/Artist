@@ -20,7 +20,7 @@ class RoundedFrame(tk.Canvas):
                  radius=35, 
                  btnforeground="#000000", 
                  btnpressclr="d2d6d3", 
-                 font='Arial 30', 
+                 font='Jost 20', 
                  btnbackground="#ffffff", 
                  btncontour='',
                  btncontourwidth=0,
@@ -30,6 +30,8 @@ class RoundedFrame(tk.Canvas):
         super(RoundedFrame, self).__init__(master, *args, **kwargs)
         self.config(bg=self.master["bg"])
         self.btnbackground = btnbackground
+        self.btnforeground = btnforeground
+        self.font = font
         self.btnpressclr = btnpressclr
         self.clicked = clicked
         self.click = click
@@ -83,6 +85,7 @@ class RoundedFrame(tk.Canvas):
             self.coords(self.rect, points)
 
     def resize(self, event):
+        
         text_bbox = self.bbox(self.text)
 
         if self.radius > event.width or self.radius > event.height:
@@ -117,6 +120,24 @@ class RoundedFrame(tk.Canvas):
             self.itemconfig(self.rect, fill=self.btnbackground)
     def change_color(self, clr):
         self.itemconfig(self.rect, fill=clr)
+        self.btnbackground = clr
+        
+    def change_text(self, text):
+        self.itemconfig(self.text, text=text)
+        
+        bbox = self.bbox(self.text)
+        w = bbox[2] - bbox[0]
+        if w > self.winfo_width():
+            average_char_width = w / len(text)
+            chars_per_line = int(self.winfo_width() / average_char_width)
+            while w > self.winfo_width():  
+                wrapped_text = '\n'.join(wrap(text, chars_per_line))
+                self.itemconfig(self.text, text=wrapped_text)
+                self.update()
+                chars_per_line -= 1
+                bbox = self.bbox(self.text)
+                w = bbox[2] - bbox[0]
+        
 
 def add_corners(im, rad):
     circle = Image.new('L', (rad * 2, rad * 2), 0)
@@ -239,7 +260,7 @@ class App():
         self.prevw = 0
         self.prevh = 0
         
-        self.text_lb = tk.Label(self.fr_status)
+        self.text_lb = tk.Label(self.status_drawing)
         
         self.fr_progressbar = tk.Frame(self.fr_status, height=60)
         
@@ -384,10 +405,7 @@ class App():
                 action()
                 
     def print_text(self, text):
-        self.fr_progressbar.pack_forget()
-        self.lb_progressbar.pack_forget()
-        self.text_lb.pack(side='left', expand=True, fill='both')
-        self.text_lb.configure(text=text, font=self.btfont)
+        self.status_drawing.change_text(text)
         self.root.update()
                 
     def remove_img(self):
@@ -398,6 +416,7 @@ class App():
         self.display_img = ImageTk.PhotoImage(img)
         self.image_panel = tk.Label(self.canvas, image=self.display_img)
         self.image_panel.pack(side="bottom", fill="both", expand="yes")
+        self.root.update()
 
 if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
@@ -408,8 +427,9 @@ if __name__ == '__main__':
         if not res:
             break
         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        app.progressbar_step(1)
-        app.change_status()
+        # app.progressbar_step(1)
+        # app.change_status()
+        app.print_text("Вы сказали: я нарисовал апельсиновое облако")
         app.update(resize(img, (imgh, imgw)) * 255)
     vid.release()
     
