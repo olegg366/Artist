@@ -77,13 +77,13 @@ def generate(img, prompt):
     pipe.unet.to(memory_format=torch.channels_last)
     pipe.vae.to(memory_format=torch.channels_last)
 
-    generator = torch.manual_seed(2023)
+    generator = torch.manual_seed(2024)
     
     print('Succesfully set up stable diffusion.')
 
     image = pipe(prompt, img, 
                  num_inference_steps=50, 
-                 negative_prompt="many lines"
+                 negative_prompt="many lines",
                  height=512, width=512, 
                  generator=generator, 
                  callback_on_step_end=callback).images[0]

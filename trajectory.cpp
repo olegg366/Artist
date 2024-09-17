@@ -1,5 +1,5 @@
-#include <math.h>
 #include <vector>
+#include <math.h>
 #include <deque>
 #include <iostream>
 #include <fstream>
@@ -416,7 +416,7 @@ extern "C"
                 xn = x + dt.first; yn = y + dt.second;
                 if (in_image(xn, yn, shp))
                 {
-                    if (bimage[xn][yn] && check_near(xn, yn, mxdeltas, bimage))
+                    if (bimage[xn][yn] && check_near(xn, yn, deltas, bimage))
                     {
                         x = xn; y = yn;
                         ans.push_back(make_pair(x + sx, y + sy));
@@ -428,11 +428,11 @@ extern "C"
 
             if (!change)
             {
-                res = random_point(bimage, mxdeltas);
+                res = random_point(bimage, deltas);
                 x = res.first; y = res.second;
                 if (x == -1)
                 {
-                    res = random_pointf(bimage, mxdeltas, filter);
+                    res = random_pointf(bimage, deltas, filter);
                     x = res.first; y = res.second;
                 }
                 if (bimage[x][y])
@@ -478,7 +478,7 @@ extern "C"
         ld s = 0;
         for (pair <int, int> pnt : cords)
             s = max(s, abs(a * pnt.first + b - pnt.second));
-        return s < 1;
+        return s < 0.5;
     }
 
     ld mean(vi &vec)

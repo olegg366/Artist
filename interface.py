@@ -139,7 +139,7 @@ class App():
 
         self.line_id = None
         self.line_points = []
-        self.line_options = {'fill': 'black'}
+        self.line_options = {'fill': 'black', 'width': 10}
 
         #конфигурируем панель управления
         self.fr_ctrl = tk.Frame(width=self.root.winfo_width(), height=100)
@@ -280,32 +280,21 @@ class App():
         self.flag_generate = 1
         
     def print_instructions(self):
-        text = ["Это - робот-художник. Вы можете нарисовать в воздухе что угодно, сказать ему, что это, он создаст из вашего рисунка шедевр и нарисует его.",
-                "1. Чтобы начать рисовать, покажите большой палец.",
-                "2. Поднятый указательный палец будет двигать курсор.",
-                '3. Чтобы "нажать мышкой" или рисовать в области рисования, соедините указательный и большой пальцы.',
-                "4. Чтобы очистить все поле рисования, покажите открытую ладонь.",
-                "5. Когда закончите рисовать, покажите ещё раз большой палец. ",
-                '6. Скажите, что Вы нарисовали, когда на экране появится надпись "Говорите..."',
-                "7. Ожидайте рисунка =D"]
-        self.instruction_lb = tk.Label(self.canvas, font='Jost 37', justify='left', anchor="e")
-        self.instruction_lb.grid(ipadx=10)
-        for i, sentence in enumerate(text):
-            self.instruction_lb['text'] = sentence
-            self.root.update()
-            if self.instruction_lb.winfo_width() > self.canvas.winfo_width():
-                average_char_width = self.instruction_lb.winfo_width() / len(sentence)
-                chars_per_line = int(self.canvas.winfo_width() / average_char_width)
-                while self.instruction_lb.winfo_width() > self.canvas.winfo_width():  
-                    wrapped_text = '\n'.join(wrap(sentence, chars_per_line))
-                    self.instruction_lb['text'] = wrapped_text
-                    self.root.update()
-                    chars_per_line -= 1
-                text[i] = wrapped_text
-        self.instruction_lb['text'] = '\n'.join(text)
+        text = ["- начать/закончить", "- перемещать курсор", "- рисовать", "- очистить все"]
+        imgs_names = ["thumb_up.png", "point_up.png", "click.png", "open.png"]
+        self.instruction_frame = tk.Frame(self.canvas)
+        self.instruction_frame.pack(fill='both', padx=100)
+        self.signs = []
+        for idx, sentence in enumerate(text):
+            label = tk.Label(self.instruction_frame, text=sentence, font="Jost 50")
+            self.signs.append(ImageTk.PhotoImage(Image.open('images/' + imgs_names[idx])))
+            image = tk.Label(self.instruction_frame, image=self.signs[-1])
+            
+            image.grid(row=idx, column=0)
+            label.grid(row=idx, column=1, sticky='w')
         
     def remove_instructions(self):
-        self.instruction_lb.grid_forget()
+        self.instruction_frame.pack_forget()
         self.root.update()
         
     def change_status(self):
@@ -414,7 +403,6 @@ if __name__ == '__main__':
     vid = cv2.VideoCapture(0)
     app = App()
     app.setup_progressbar()
-    app.print_instructions()
     while True:
         res, img = vid.read()
         if not res:

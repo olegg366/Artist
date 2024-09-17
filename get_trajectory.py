@@ -63,11 +63,11 @@ lib.pcompute_image.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.
 lib.pcompute_image.restype = c.POINTER(c.c_int32)
 
 def mark(img, clrs):
-    lib.pmark(img.astype('float128', order='C'), clrs.astype('float128', order='C'), *img.shape, *clrs.shape)
+    lib.pmark(img.astype('float128', order='C'), clrs.astype('float64', order='C'), *img.shape, *clrs.shape)
     return img
 
 def fill(x, y, vis, img):
-    lib.pfill(x, y, vis.astype('int32', order='C'), img.astype('float128', order='C'), *img.shape)
+    lib.pfill(x, y, vis.astype('int32', order='C'), img.astype('float64', order='C'), *img.shape)
     return vis, img
 
 def compute_image(img, d, sx, sy):
@@ -95,13 +95,14 @@ def get_colors(img):
     else:
         t = canny(b)
         
-    t = binary_dilation(t, square(2))
+    t = binary_dilation(t, square(5))
     nz = np.nonzero(t)
     t = t[max(0, np.min(nz[0]) - 10):min(t.shape[0], np.max(nz[0]) + 10), max(0, np.min(nz[1]) - 10):min(t.shape[1], np.max(nz[1]) + 10)]
     return t
         
-def draw_img(img: Image):
-    img = np.array(img)
+def draw_img(img, **kwargs):
+    if not isinstance(img, np.ndarray):
+        img = np.array(img)
     print('getting colors..')
     img = get_colors(img)
     print('got colors')
@@ -114,33 +115,34 @@ def draw_img(img: Image):
     for reg in rgs:
         idx += 1
         regimg = reg.image
-        cords = compute_image(regimg, 2, *reg.bbox[:2])
+        cords = compute_image(regimg, 4, *reg.bbox[:2])
         trajectory.extend(cords)
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
     # print(trajectory)
-    trajectory = np.array(trajectory)
-    ax = plt.subplot()
-    ax.imshow(img, cmap='gray')
-    i = 0
-    end = 0
-    while i < len(trajectory):
-        while i < len(trajectory) and trajectory[i, 0] != -1e9:
-            i += 1
-        i += 1
-        end = i
-        while i < len(trajectory) and trajectory[i, 0] != 1e9:
-            i += 1
-        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    plt.get_current_fig_manager().full_screen_toggle()
-    plt.show()
+    # trajectory = np.array(trajectory)
+    # ax = plt.subplot()
+    # ax.imshow(img, cmap='gray')
+    # i = 0
+    # end = 0
+    # while i < len(trajectory):
+    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
+    #         i += 1
+    #     i += 1
+    #     end = i
+    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
+    #         i += 1
+    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+    # plt.get_current_fig_manager().full_screen_toggle()
+    # plt.show()
     
     print('sending gcode...')
-    gcode = get_gcode(trajectory)
+    gcode = get_gcode(trajectory, **kwargs)
     send_gcode(gcode)
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/gen.png')
+    img = imread('images/money.png')[:, ::-1]
+    # img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
     draw_img(img)

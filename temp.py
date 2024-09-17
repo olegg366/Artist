@@ -1,14 +1,7 @@
-import os
-import pyautogui as pg, mouse as ms
+from imageio import imread, imsave
+from skimage.transform import resize
 
-cords = [[i, j] for i in range(500, 1000) for j in range(500, 1000)]
+img = imread('images/point_up.png')
 
-pg.FAILSAFE = False
-
-def drag(x, y):
-    os.system('xdotool mousedown 1')
-    ms.move(x, y)
-    os.system('xdotool mouseup 1')
-
-for x, y in cords:
-    pg.dragTo(x, y, 0.0, _pause=False)
+img = resize(img, (245, 222))
+imsave('images/point_up.png', (img * 255).astype('uint8'))
