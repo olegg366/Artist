@@ -185,6 +185,8 @@ class App():
         self.btpress = '#e77774'
         self.bttextclr = 'white'
         
+        self.image_panel = tk.Label(self.canvas)
+
         self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((imgh, imgw))))
         self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image)
         self.points_image_panel.pack(side='top', fill='both', pady=self.pad)
@@ -249,7 +251,7 @@ class App():
                                     height=self.bth, 
                                     btnpressclr=self.btpress,
                                     width=self.btw, 
-                                    font="Arial 55 bold")
+                                    font="Jost 55 bold")
         self.bt_gen.pack(side='top', fill='both', pady=self.pad)
 
         #картинка, чтобы затем генерировать
@@ -447,7 +449,7 @@ class App():
     def display(self, img: Image):
         img = img.resize((img.size[0] * 2, img.size[1] * 2))
         self.display_img = ImageTk.PhotoImage(img)
-        self.image_panel = tk.Label(self.canvas, image=self.display_img)
+        self.image_panel.configure(image=self.display_img)
         self.image_panel.pack(side="bottom", fill="both", expand="yes")
         self.root.update()
 

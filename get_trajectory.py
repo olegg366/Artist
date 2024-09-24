@@ -104,9 +104,12 @@ def get_colors(img, crop):
 def draw_img(img, crop=False, **kwargs):
     if not isinstance(img, np.ndarray):
         img = np.array(img)
-    img = rotate(img, 90, mode='edge')[::-1]
+    img = img[::-1]
+    #img = rotate(img, 90, mode='edge')[::-1]
     print('getting colors..')
     img = get_colors(img, crop)
+    plt.imshow(img, cmap='gray')
+    plt.show()
     print('got colors')
     
     print('getting trajectory...')
@@ -122,22 +125,22 @@ def draw_img(img, crop=False, **kwargs):
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
-    # print(trajectory)
-    # trajectory = np.array(trajectory)
-    # ax = plt.subplot()
-    # ax.imshow(img, cmap='gray')
-    # i = 0
-    # end = 0
-    # while i < len(trajectory):
-    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
-    #         i += 1
-    #     i += 1
-    #     end = i
-    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
-    #         i += 1
-    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    # plt.get_current_fig_manager().full_screen_toggle()
-    # plt.show()
+    print(trajectory)
+    trajectory = np.array(trajectory)
+    ax = plt.subplot()
+    ax.imshow(img, cmap='gray')
+    i = 0
+    end = 0
+    while i < len(trajectory):
+        while i < len(trajectory) and trajectory[i, 0] != -1e9:
+            i += 1
+        i += 1
+        end = i
+        while i < len(trajectory) and trajectory[i, 0] != 1e9:
+            i += 1
+        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+    plt.get_current_fig_manager().full_screen_toggle()
+    plt.show()
     
     print('sending gcode...')
     gcode = get_gcode(trajectory, **kwargs)
@@ -145,6 +148,6 @@ def draw_img(img, crop=False, **kwargs):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/generated/cake_1719505964.8239765.png')
-    # img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
-    draw_img(img, k=512/370)
+    img = imread('images/scribble.png')
+    img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
+    draw_img(img, k=img.shape[1]/370)

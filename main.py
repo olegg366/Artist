@@ -221,7 +221,7 @@ if __name__ == '__main__':
                         app.setup_progressbar()
                         
                         try:
-                            gen = generate(scribble, prompt + ', single color, childs drawing')
+                            gen = generate(scribble, prompt + ', russian, single color, easy drawing')
                         except:
                             ld = os.listdir('images/norm/')
                             file = ''
@@ -247,7 +247,6 @@ if __name__ == '__main__':
                         draw_img(gen, k=512/370)
                         
                         app.change_status()                   
-                        app.remove_img()
                         
                         flag = False
                         flagn = False
