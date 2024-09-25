@@ -76,8 +76,8 @@ def draw_landmarks_on_image(rgb_image, detection_result):
 
   return annotated_image
 
-def draw(tp, time, cnt, flag, cords, endflag, app: App):
-    if tp == 'Click' and flag:
+def draw(tps: list, time, cnt, flag, cords, endflag, app: App):
+    if 'Click' in tps and flag:
         cnt['clean'] = 0
         cnt['end'] = 0
         cnt['drag'] += 1
@@ -90,7 +90,7 @@ def draw(tp, time, cnt, flag, cords, endflag, app: App):
         else:
             pg.moveTo(x, y, 0.0, _pause=False)
             pg.click()
-    elif tp == 'Pointing_Up' or (tp == 'Click' and not flag):
+    elif 'Pointing_Up' in tps or ('Click' in tps and not flag):
         x, y = cords[-1]
         x = 640 - x
         x = arduino_map(x, 0, 640, 0, 1920)
@@ -99,22 +99,21 @@ def draw(tp, time, cnt, flag, cords, endflag, app: App):
         cnt['end'] = 0
         cnt['drag'] = 0
         pg.moveTo(x, y, 0.0, _pause=False)
-    elif flag and tp == 'Open_Palm' and tt() - time['clean'] > 5:
+    elif flag and tps.count('Open_Palm') == 2:
         cnt['end'] = 0
-        if cnt['clean'] > 10:
-            app.delete()
-            time['clean'] = tt()
-            cnt['clean'] = 0
-        else:
-            cnt['clean'] += 1
+        app.delete()
+        time['clean'] = tt()
+        cnt['clean'] = 0
     else:
         cnt['clean'] = 0
-        if tp == 'Thumb_Up' and tt() - time['start'] > 10: 
+        if 'Thumb_Up' in tps and tt() - time['start'] > 10: 
             if cnt['end'] > 10:
                 if not flag:
                     flag = True
                     cnt['end'] = 0
                     time['start'] = tt()
+                    app.remove_instructions()
+                    app.remove_img()
                 else:
                     endflag = True
                     time['start'] = tt()

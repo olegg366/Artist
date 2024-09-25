@@ -21,8 +21,11 @@ from utilites import draw_landmarks_on_image, draw, get_landmarks, dist
 from interface import App
 from google_speech import recognize
 from get_trajectory import draw_img
+from draw_logo import draw_a5
 
-from time import sleep
+from time import sleep, time
+import os
+from random import choice
 
 gpu_devices = tf.config.experimental.list_physical_devices('GPU')
 for device in gpu_devices:
@@ -76,16 +79,13 @@ def generate(img, prompt):
 
     pipe.unet.to(memory_format=torch.channels_last)
     pipe.vae.to(memory_format=torch.channels_last)
-
-    generator = torch.manual_seed(2024)
     
     print('Succesfully set up stable diffusion.')
 
     image = pipe(prompt, img, 
                  num_inference_steps=50, 
-                 negative_prompt="many lines",
+                 negative_prompt="many lines, bad anatomy, worst quality, bad quality",
                  height=512, width=512, 
-                 generator=generator, 
                  callback_on_step_end=callback).images[0]
     
     del pipe, controlnet
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     mp_drawing = mp.solutions.drawing_utils
     mp_drawing_styles = mp.solutions.drawing_styles
     options = HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.CPU),
+        base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
         running_mode=VisionRunningMode.VIDEO)
     print('Succesfully set up hand landmarker.')
 
@@ -149,6 +149,7 @@ if __name__ == '__main__':
     #индикатор того, рисуем мы или нет 
     flag = False
     end = False
+    flag_checking = False
     timestamp = 0
     with HandLandmarker.create_from_options(options) as landmarker:
         while True:
@@ -160,7 +161,6 @@ if __name__ == '__main__':
             
             detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
             if detection.hand_landmarks:
-                app.remove_instructions()
                 lmks = get_landmarks(detection)
                 x, y = lmks[0, 8, :2]
                 x *= img.shape[1]
@@ -177,44 +177,92 @@ if __name__ == '__main__':
                     inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
                     pred = trt_func(**inp)['dense_5']
                     gt = classes[np.argmax(pred[0])]
-                flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end, app)
+                if flag_checking:
+                    _, t, cnt, __ = draw(gt, t, cnt, True, last_cords, end, app)
+                    if not app.flag_answer:
+                        img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
+                        app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
+                        cv2.waitKey(1)
+                        timestamp += 1
+                        continue
+                    else:
+                        flag_checking = False
+                else:
+                    flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end, app)
                 if flagn != flag and not end:
                     app.change_status()
                 flag = flagn
                 if end or app.flag_generate:
-                    flag = False
-                    end = False
-                    cnt = {
-                        'clean': 0,
-                        'end': 0,
-                        'drag': 0
-                    }
-                    t = {
-                        'paint' : 0,
-                        'clean' : 0,
-                        'start' : 0
-                    }
-                    scribble = app.image
-                    scribble.save('images/scribble.png')
-                    prompt, rus = recognize(app)
-                    
-                    app.print_text('Вы сказали: ' + rus)
-                    app.change_status()
-                    app.setup_progressbar()
-                    
-                    gen = generate(scribble, prompt + ', single color, childs drawing')
-                    app.flag_generate = 0
-                    
-                    gen.save('images/gen.png')
-                    
-                    app.display(gen)
-                    app.change_status()
-                    
-                    draw_img(gen)
-                    try:
-                        sleep(6000)
-                    except KeyboardInterrupt:
-                        app.remove_img()
+                    if not app.flag_answer:
+                        scribble = app.image
+                        scribble.save('images/scribble.png')
+                        prompt = ''
+                        while not prompt:
+                            try:
+                                prompt, rus = recognize(app)
+                            except ValueError:
+                                app.print_text("Распознавание не удалось. Попробуйте ещё раз.")
+                                sleep(3)
+                                
+                        app.print_text('Вы сказали: ' + rus + '?')
+                        app.check_recognition()
+                        flag_checking = 1
+                        app.update()
+                    else:
+                        app.flag_answer = 0
+                        flag_checking = 0
+                        
+                        if not app.flag_recognition:
+                            timestamp += 1
+                            app.update()
+                            continue
+                        app.print_text('Генерация по запросу: ' + rus)
+                        app.change_status()
+                        app.setup_progressbar()
+                        
+                        try:
+                            gen = generate(scribble, prompt + ', russian, single color, easy drawing')
+                        except:
+                            ld = os.listdir('images/norm/')
+                            file = ''
+                            for fn in ld:
+                                if fn.find(prompt) != -1:
+                                    file = fn
+                                    break
+                            if not file:
+                                gen = Image.open('images/norm/' + choice(ld))
+                            else:
+                                gen = Image.open('images/norm/' + file)
+                        app.flag_generate = 0
+                        
+                        app.print_text('')
+                        app.delete()
+                        app.fr_progressbar.pack_forget()
+                        
+                        gen.save('images/generated/' + prompt.lower().replace(' ', '_') + '_' + str(time()) + '.png')
+                        
+                        app.display(gen)
+                        
+                        sleep(3)
+                        draw_img(gen, k=512/370)
+                        
+                        app.change_status()                   
+                        
+                        flag = False
+                        flagn = False
+                        end = False
+                        app.flag_answer = 0
+                        
+                        cnt = {
+                            'clean': 0,
+                            'end': 0,
+                            'drag': 0
+                        }
+                        t = {
+                            'paint' : 0,
+                            'clean' : 0,
+                            'start' : 0
+                        }
             img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
             app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
             cv2.waitKey(1)

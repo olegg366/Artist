@@ -16,7 +16,7 @@ pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffus
                                                         torch_dtype=torch.float32)
 tomesd.apply_patch(pipe, ratio=0.5)
 
-helper = DeepCacheSDHelper(pipe=pipe)
+helper = DeepCacheSDHelper(pipe)
 helper.set_params(
     cache_interval=5,
     cache_branch_id=0,
@@ -31,12 +31,13 @@ pipe.enable_xformers_memory_efficient_attention()
 pipe.unet.to(memory_format=torch.channels_last)
 pipe.vae.to(memory_format=torch.channels_last)
 
-prompt = "cat, single color, marker art"
+prompt = "house, single color, child's drawing"
 negative_prompt = "many lines"
-img =  Image.open('images/scribble.png')
+img = Image.open('images/scribble.png')
 
 generator = torch.manual_seed(2023)
 
-image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, negative_prompt=negative_prompt, generator=generator).images[0]
+with torch.inference_mode():
+    image = pipe(prompt, img, num_inference_steps=50, height=512, width=512, negative_prompt=negative_prompt, generator=generator).images[0]
 
-image.save('images/gen.png')
+    image.save('images/gen.png')

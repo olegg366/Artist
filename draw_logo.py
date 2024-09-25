@@ -10,11 +10,16 @@ rro = imread('images/RRO.png')
 rro = resize(rro, (512, rro.shape[1] * (512 / rro.shape[0])))
 
 # A5
-# draw_img(robot, k=512/180, deltax=390, deltay=290)
-# sleep(5)
-# draw_img(rro, k=512/140, deltax=406, deltay=20)
+def draw_a5():
+    draw_img(robot, crop=True, deltax=20, k=512/180, deltay=390)
+    sleep(5)
+    draw_img(rro, crop=True, k=512/140, deltax=250, deltay=390)
 
 # A3
-draw_img(robot, k=512/180, deltax=390, deltay=590)
-sleep(5)
-draw_img(rro, k=512/140, deltax=426, deltay=10)  
+def draw_a3():
+    draw_img(robot, k=512/180, deltax=390, deltay=490)
+    sleep(5)
+    draw_img(rro, k=512/140, deltax=406, deltay=10)  
+    
+if __name__ == '__main__':
+    draw_a5()
