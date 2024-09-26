@@ -112,6 +112,8 @@ def draw(tps: list, time, cnt, flag, cords, endflag, app: App):
                     flag = True
                     cnt['end'] = 0
                     time['start'] = tt()
+                    app.remove_instructions()
+                    app.remove_img()
                 else:
                     endflag = True
                     time['start'] = tt()
