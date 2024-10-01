@@ -8,8 +8,8 @@ try:
         print('compiling...')
         dst.close()
         
-        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc61 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
-        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc61 -stdpar lib/trajectory.o -o lib/trajectory.so')
+        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc86 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
+        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc86 -stdpar lib/trajectory.o -o lib/trajectory.so')
         
         if err1: exit(err1)
         if err2: exit(err2)
@@ -108,8 +108,6 @@ def draw_img(img, crop=False, **kwargs):
     #img = rotate(img, 90, mode='edge')[::-1]
     print('getting colors..')
     img = get_colors(img, crop)
-    plt.imshow(img, cmap='gray')
-    plt.show()
     print('got colors')
     
     print('getting trajectory...')
@@ -125,7 +123,7 @@ def draw_img(img, crop=False, **kwargs):
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
     print('got trajectory')
-    print(trajectory)
+    # print(trajectory)
     trajectory = np.array(trajectory)
     ax = plt.subplot()
     ax.imshow(img, cmap='gray')
@@ -148,6 +146,6 @@ def draw_img(img, crop=False, **kwargs):
     print('sent gcode')
     
 if __name__ == '__main__':
-    img = imread('images/scribble.png')
+    img = imread('images/gen.png')
     img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
     draw_img(img, k=img.shape[1]/370)
