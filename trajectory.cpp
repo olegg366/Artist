@@ -24,7 +24,7 @@ extern "C"
 {
     bool eqvdvd(const vd &a, const vd &b) {
         if (a.size() != b.size()) return false; 
-        return equal(execution::par_unseq, a.begin(), a.end(), b.begin());
+        return equal(execution::par, a.begin(), a.end(), b.begin());
     }
 
     bool neqvdvd (const vd &a, const vd &b)
@@ -37,7 +37,7 @@ extern "C"
         if (a.size() != b.size() || a[0].size() != b[0].size()) return false; 
 
         for (int x = 0; x < a.size(); ++x) {
-            auto [it1, it2] = mismatch(execution::par_unseq, a[x].begin(), a[x].end(), b[x].begin());
+            auto [it1, it2] = mismatch(execution::par, a[x].begin(), a[x].end(), b[x].begin());
             if (it1 != a[x].end()) return false; 
         }
         return true;
@@ -45,7 +45,7 @@ extern "C"
 
     bool neqvii(vvi a, int b) {
         return any_of(a.begin(), a.end(), [=](const std::vector<int> row) {
-            return any_of(execution::par_unseq, row.begin(), row.end(), [=](int elem) {
+            return any_of(execution::par, row.begin(), row.end(), [=](int elem) {
                 return elem != b;
             });
         });
@@ -53,7 +53,7 @@ extern "C"
 
     vd subvdvd(const vd &a, const vd &b) {
         vd ans(a.size());
-        transform(execution::par_unseq, a.begin(), a.end(), b.begin(), ans.begin(), [](ld x, ld y) {
+        transform(execution::par, a.begin(), a.end(), b.begin(), ans.begin(), [](ld x, ld y) {
             return x - y;
         });
         return ans;
@@ -69,7 +69,7 @@ extern "C"
     vvi vand(const vvi &a, const vvi &b) {
         vvi ans(a.size(), vector<int>(a[0].size()));
         for (size_t i = 0; i < a.size(); ++i) {
-            transform(execution::par_unseq, a[i].begin(), a[i].end(), b[i].begin(), ans[i].begin(), [](int x, int y) {
+            transform(execution::par, a[i].begin(), a[i].end(), b[i].begin(), ans[i].begin(), [](int x, int y) {
                 return x && y;
             });
         }
@@ -81,7 +81,7 @@ extern "C"
         vvi ans(a.size(), vi(a[0].size()));
         for (int i = 0; i < a.size(); i++)
         {
-            transform(execution::par_unseq, a[i].begin(), a[i].end(), ans[i].begin(), [](int x) {return !x;});
+            transform(execution::par, a[i].begin(), a[i].end(), ans[i].begin(), [](int x) {return !x;});
         }
         return ans;
     }
@@ -89,13 +89,13 @@ extern "C"
     vd absvd(const vd &x)
     {
         vd ans(x.size());
-        transform(execution::par_unseq, x.begin(), x.end(), ans.begin(), [](ld a) {return abs(a);});
+        transform(execution::par, x.begin(), x.end(), ans.begin(), [](ld a) {return abs(a);});
         return ans;
     }
 
     ld sumvd(const vd &x)
     {
-        ld ans = reduce(execution::par_unseq, x.begin(), x.end(), 0);
+        ld ans = reduce(execution::par, x.begin(), x.end(), 0);
         return ans;
     }
 
@@ -111,7 +111,7 @@ extern "C"
         vvi ans(arr.size(), vi(ans[0].size(), 0));
         for (int x = 0; x < arr.size(); x++)
         {
-            transform(execution::par_unseq, arr[x].begin(), arr[x].end(), ans[x].begin(), [](pair <int, int> &cords) {return cords.first || cords.second;});
+            transform(execution::par, arr[x].begin(), arr[x].end(), ans[x].begin(), [](pair <int, int> &cords) {return cords.first || cords.second;});
         }
         return ans;
     }

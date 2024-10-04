@@ -25,15 +25,9 @@ options = HandLandmarkerOptions(
 def servo(ser: serial.Serial, n):
     angle = 0
     if n == 'up': angle = 90
-    else: angle = 135
+    elif n == 'down': angle = 135
     ser.write(f'M280 P0 S{angle}\n'.encode())
     ser.read_until(b'ok\n')
-    ser.write('M280 P0\n'.encode())
-    pos = ser.read_all().decode()
-    while pos != angle:
-        ser.write('M280 P0\n'.encode())
-        ser.read_until(b'ok\n')
-        pos = ser.read_all().decode()
         
 def get_gcode(t: list, k=1, deltax=0, deltay=0):
     i = 2
@@ -63,27 +57,30 @@ def send_gcode(gcodes: list):
     sleep(2)
     ser.write(b'G90\n')
     prevx, prevy = 0, 0
+    timestamp = 0
     try:
         flag_stop = False
         with HandLandmarker.create_from_options(options) as landmarker:
             for gcode in gcodes:
+                timestamp += 1
                 res, img = vid.read()
                 if not res:
                     print('Fix the cam')
                     continue
                 detection = landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=cv2.cvtColor(img, cv2.COLOR_BGR2RGB)), timestamp)
                 if detection.hand_landmarks:
-                    print('Hand in the working space')
                     if not flag_stop: 
+                        print('Hand in the working space')
                         flag_stop = True
-                        ser.write(b'M0\n')
+                        ser.write(b'G4\n')
                         ser.read_until(b'ok\n')
                         print('Stopped painting')
                     continue
+                else: flag_stop = False
                 print(gcode)
                 if (gcode[0] != 'G'):
                     servo(ser, gcode)
-                    # sleep(0.1)
+                    sleep(0.1)
                     continue
                 if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
                     continue
@@ -91,7 +88,7 @@ def send_gcode(gcodes: list):
                 ser.read_until(b'ok\n')
                 gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
                 d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
-                # sleep(d + 0.1)
+                sleep(d + 0.1)
                 prevx, prevy = gcode
     except KeyboardInterrupt:
         pass
@@ -110,7 +107,7 @@ if __name__ == '__main__':
     ser.write(b'G90\n')
     try:
         while True:
-            n = input()
+            n = input('Enter your command: ')
             if n[0] == 'X' or n[0] == 'Y':
                 ser.write(('G1 ' + n + '\n').encode())
             elif n in ['up', 'down', 'maxup']:

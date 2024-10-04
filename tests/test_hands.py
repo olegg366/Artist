@@ -50,7 +50,7 @@ def draw_landmarks_on_image(rgb_image, detection_result):
   return annotated_image
 
 # STEP 2: Create an HandLandmarker object.
-base_options = python.BaseOptions(model_asset_path='mlmodels/hand_landmarker.task', delegate=python.BaseOptions.Delegate.CPU)
+base_options = python.BaseOptions(model_asset_path='mlmodels/hand_landmarker.task', delegate=python.BaseOptions.Delegate.GPU)
 options = vision.HandLandmarkerOptions(base_options=base_options,
                                        num_hands=2,
                                        running_mode=vision.RunningMode.VIDEO)

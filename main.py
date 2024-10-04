@@ -9,8 +9,7 @@ import tensorflow as tf
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.saved_model import tag_constants
 
-import tomesd
-from DeepCache import DeepCacheSDHelper
+# from DeepCache import DeepCacheSDHelper
 from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler, ControlNetModel
 
 from PIL import Image
@@ -63,18 +62,17 @@ def generate(img, prompt):
                                                             safety_checker=None, 
                                                             use_safetensors=True,
                                                             torch_dtype=torch.float32)
-    tomesd.apply_patch(pipe, ratio=0.5)
 
-    helper = DeepCacheSDHelper(pipe=pipe)
-    helper.set_params(
-        cache_interval=5,
-        cache_branch_id=0,
-    )
-    helper.enable()
+    # helper = DeepCacheSDHelper(pipe=pipe)
+    # helper.set_params(
+    #     cache_interval=5,
+    #     cache_branch_id=0,
+    # )
+    # helper.enable()
 
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
 
-    pipe.enable_sequential_cpu_offload()
+    # pipe.enable_sequential_cpu_offload()
     pipe.enable_xformers_memory_efficient_attention()
 
     pipe.unet.to(memory_format=torch.channels_last)
@@ -120,6 +118,7 @@ if __name__ == '__main__':
     mp_drawing_styles = mp.solutions.drawing_styles
     options = HandLandmarkerOptions(
         base_options=BaseOptions(model_asset_path=model_path, delegate=BaseOptions.Delegate.GPU),
+        num_hands=2,
         running_mode=VisionRunningMode.VIDEO)
     print('Succesfully set up hand landmarker.')
 
@@ -172,13 +171,13 @@ if __name__ == '__main__':
                     timestamp += 1
                     continue
                 if dist(lmks[0, 4], lmks[0, 8]) / dist(lmks[0, 0], lmks[0, 8]) <= 0.2:
-                    gt = 'Click'
+                    gts = ['Click']
                 else:
                     inp = {'conv1d_4_input': tf.convert_to_tensor(lmks[:, :, :2])}
                     pred = trt_func(**inp)['dense_5']
-                    gt = classes[np.argmax(pred[0])]
+                    gts = [classes[x] for x in np.argmax(pred, axis=-1)]
                 if flag_checking:
-                    _, t, cnt, __ = draw(gt, t, cnt, True, last_cords, end, app)
+                    _, t, cnt, __ = draw(gts, t, cnt, True, last_cords, end, app)
                     if not app.flag_answer:
                         img = draw_landmarks_on_image(cv2.cvtColor(img, cv2.COLOR_BGR2RGB), detection)
                         app.update((resize(img, (img.shape[0] // 2, img.shape[1] // 2)) * 255).astype('uint8'))
@@ -188,7 +187,7 @@ if __name__ == '__main__':
                     else:
                         flag_checking = False
                 else:
-                    flagn, t, cnt, end = draw(gt, t, cnt, flag, last_cords, end, app)
+                    flagn, t, cnt, end = draw(gts, t, cnt, flag, last_cords, end, app)
                 if flagn != flag and not end:
                     app.change_status()
                 flag = flagn
@@ -199,7 +198,7 @@ if __name__ == '__main__':
                         prompt = ''
                         while not prompt:
                             try:
-                                prompt, rus = recognize(app)
+                                prompt, rus = 'house', 'дом'
                             except ValueError:
                                 app.print_text("Распознавание не удалось. Попробуйте ещё раз.")
                                 sleep(3)
