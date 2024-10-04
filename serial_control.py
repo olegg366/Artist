@@ -2,7 +2,6 @@ import serial
 from time import sleep
 import mediapipe as mp
 import numpy  as np
-from math import sin, cos
 import os
 import cv2
 
@@ -29,27 +28,20 @@ def servo(ser: serial.Serial, n):
     ser.write(f'M280 P0 S{angle}\n'.encode())
     ser.read_until(b'ok\n')
         
-def get_gcode(t: list, k=1, deltax=0, deltay=0):
+def get_gcode(t: list):
     i = 2
-    ans = [f'G1 X{(t[0][0] / k) + deltax} Y{(t[0][1] / k) + deltay} F{speed * 2}\n', 'down']
+    ans = [f'G1 X{(t[0][0])} Y{(t[0][1])} F{speed * 2}\n', 'down']
     while i < len(t):
         while i < len(t) and t[i][0] != 1e9:
             if abs(t[i][0]) != 1e9:
-                ans += [f'G1 X{(t[i][0] / k) + deltax} Y{(t[i][1] / k) + deltay} F{speed}\n']
+                ans += [f'G1 X{(t[i][0])} Y{(t[i][1])} F{speed}\n']
             i += 1
         ans += ['up']
         if i < len(t) - 1 and abs(t[i + 1][0]) != 1e9:
-            ans += [f'G1 X{(t[i + 1][0] / k) + deltax} Y{(t[i + 1][1] / k) + deltay} F{speed * 2}\n']
+            ans += [f'G1 X{(t[i + 1][0])} Y{(t[i + 1][1])} F{speed * 2}\n']
         ans += ['down']
         i += 3
     return ans
-
-def shift_matrix(sx: float, sy: float, angle: float, matrix: np.ndarray):
-    rm = np.array([[cos(angle), sin(angle)],
-                   [-sin(angle), cos(angle)]])
-    rotated = np.matmul(matrix, rm)
-    shifted = rotated + [sx, sy]
-    return shifted
 
 def send_gcode(gcodes: list):
     vid = cv2.VideoCapture(0)
@@ -77,6 +69,7 @@ def send_gcode(gcodes: list):
                         print('Stopped painting')
                     continue
                 else: flag_stop = False
+                
                 print(gcode)
                 if (gcode[0] != 'G'):
                     servo(ser, gcode)

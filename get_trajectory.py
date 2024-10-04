@@ -28,7 +28,7 @@ from matplotlib.lines import Line2D
 
 from PIL import Image
 from imageio.v2 import imread, imwrite
-from time import sleep
+from time import sleep, time
 
 from skimage.measure import label, regionprops
 from skimage.feature import canny
@@ -38,6 +38,10 @@ from skimage.morphology import binary_dilation, square
 import ctypes as c
 
 from serial_control import get_gcode, send_gcode
+
+import cv2
+from math import sin, cos, acos, sqrt, pi
+from detect_paper import detect_paper
 
 lib = c.CDLL('/home/olegg/Artist/lib/trajectory.so')
 
@@ -100,8 +104,21 @@ def get_colors(img, crop):
         nz = np.nonzero(t)
         t = t[max(0, np.min(nz[0]) - 10):min(t.shape[0], np.max(nz[0]) + 10), max(0, np.min(nz[1]) - 10):min(t.shape[1], np.max(nz[1]) + 10)]
     return t
+
+def shift_coords(sx: float, sy: float, angle: float, matrix: np.ndarray):
+    rm = np.array([[cos(angle), sin(angle)],
+                   [-sin(angle), cos(angle)]])
+    rotated = np.matmul(matrix, rm)
+    shifted = rotated + [sx, sy]
+    return shifted
+
+def get_angle(x1, y1, x2, y2):
+    return acos((x1 * x2 + y1 * y2) / (sqrt(x1 * x1 + y1 * y1) * sqrt(x2 * x2 + y2 * y2))) 
+
+def dist(x1, y1, x2, y2):
+    return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
         
-def draw_img(img, crop=False, **kwargs):
+def draw_img(img, crop=False):
     if not isinstance(img, np.ndarray):
         img = np.array(img)
     img = img[::-1]
@@ -125,8 +142,52 @@ def draw_img(img, crop=False, **kwargs):
     print('got trajectory')
     # print(trajectory)
     trajectory = np.array(trajectory)
+    points = []
+    vid = cv2.VideoCapture(0)
+    flag = False
+    cnt = 0
+    st = time()
+    print("Get ready...")
+    while True:
+        ret, frame = vid.read()
+        if not ret:
+            print('Cant')
+            continue
+        if time() - st >= 2:
+            flag = True
+        if flag: 
+            points, frame = detect_paper(frame, warp=True)
+            if points is not None:
+                # points.append(pnts)
+                cnt += 1
+        if cnt == 50:
+            break
+        cv2.imshow('img', frame)
+        cv2.waitKey(1)
+    vid.release()
+    w, h = sorted([dist(*points[0], *points[1]), dist(*points[1], *points[2])])
+    for i in range(1, len(points)):
+        x = dist(*points[i], *points[(i + 1) % len(points)])
+        y = dist(*points[i], *points[i - 1])
+        if x == h and y == w:
+            idx = i
+            break
+    points = points[[(idx + i) % len(points) for i in range(len(points))]] 
+    sx, sy = points[0]
+    mx, my = points[1]
+    angle = get_angle(0, 1, mx - sx, my - sy)
+    index = np.any(np.abs(trajectory) != [1e9, 1e9], axis=1)
+    
+    k = w / max(img.shape)
+    trajectory[index] *= (k / 1.1)
+    if np.max(shift_coords(sx, sy, pi / 2 - angle, trajectory[index]) > max(frame.shape)): angle = pi/2 + angle
+    else: angle = pi / 2 - angle
+    trajectory[index] = shift_coords(sx, sy, angle, trajectory[index])
+    print(points)
+    print(sx, sy, angle)
+    # print(trajectory.tolist())
     ax = plt.subplot()
-    ax.imshow(img, cmap='gray')
+    ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     i = 0
     end = 0
     while i < len(trajectory):
@@ -141,11 +202,11 @@ def draw_img(img, crop=False, **kwargs):
     plt.show()
     
     print('sending gcode...')
-    gcode = get_gcode(trajectory, **kwargs)
+    gcode = get_gcode(trajectory)
     send_gcode(gcode)
     print('sent gcode')
     
 if __name__ == '__main__':
     img = imread('images/gen.png')
-    img = resize(img, (512, img.shape[1] * (512 / img.shape[0])))
-    draw_img(img, k=img.shape[1]/370)
+    img = rotate(resize(img, (512, img.shape[1] * (512 / img.shape[0]))), 0)
+    draw_img(img, True)
