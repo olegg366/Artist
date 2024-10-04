@@ -1,6 +1,8 @@
 import serial
 from time import sleep
 import mediapipe as mp
+import numpy  as np
+from math import sin, cos
 import os
 import cv2
 
@@ -47,6 +49,13 @@ def get_gcode(t: list, k=1, deltax=0, deltay=0):
         ans += ['down']
         i += 3
     return ans
+
+def shift_matrix(sx: float, sy: float, angle: float, matrix: np.ndarray):
+    rm = np.array([[cos(angle), sin(angle)],
+                   [-sin(angle), cos(angle)]])
+    rotated = np.matmul(matrix, rm)
+    shifted = rotated + [sx, sy]
+    return shifted
 
 def send_gcode(gcodes: list):
     vid = cv2.VideoCapture(0)
