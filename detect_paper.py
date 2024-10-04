@@ -1,5 +1,8 @@
 import cv2
 import numpy as np
+from skimage.feature import canny
+from skimage.measure import regionprops, label
+from skimage.morphology import binary_dilation, square
 
 cap = cv2.VideoCapture(0)
 
@@ -18,25 +21,44 @@ def reorder_quadrilateral_vertices(vertices):
     
     return vertices[sorted_indices]
 
+def increase_brightness(img, value=30):
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    lim = 255 - value
+    v[v > lim] = 255
+    v[v <= lim] += value
+    final_hsv = cv2.merge((h, s, v))
+    img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+    return img
+
 while True:
     ret, frame = cap.read()
+    # frame = increase_brightness(frame, 50)
     if not ret:
         print("Не удалось прочитать кадр с камеры")
         break
 
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    lower_green = np.array([40, 60, 60])
-    upper_green = np.array([80, 255, 255])
+    lower_black = (0, 0, 0)
+    upper_black = (180, 255, 45) 
+    lower_green = np.array([30, 50, 50])
+    upper_green = np.array([90, 255, 255])
 
-    mask = cv2.inRange(hsv, lower_green, upper_green)
+    mask1 = cv2.inRange(hsv, lower_green, upper_green)
+    
+    mask2 = cv2.inRange(hsv, lower_black, upper_black)
+    
+    mask = mask1 & (~mask2)
+    
 
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    frame = cv2.drawContours(frame, contours, -1, (255, 0, 0), 1)
     points = np.array([])
     for idx, contour in enumerate(contours):
-        if cv2.contourArea(contour) > 1000:  
+        if cv2.contourArea(contour) > 500:  
             peri = cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, 0.05 * peri, True)
+            approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
             if not points.size: points = approx[:, 0]
             else: points = np.append(points, approx[:, 0], axis=0)
     if len(points) >= 16:
@@ -50,27 +72,28 @@ while True:
                     point = pnt
                     md = np.linalg.norm(edge - pnt)
             edges.append(point.tolist())
+        cv2.drawContours(frame, [np.array(edges)], 0, (255, 0, 0), 1)
         edges = reorder_quadrilateral_vertices(np.array(edges, dtype='float32'))
-        pts2 = np.float32([[0, 0], [0, 297], [210, 297], [210, 0]])
+        w, h = 260, 320
+        pts2 = np.float32([[0, 0], [0, w], [h, w], [h, 0]])
         matrix = cv2.getPerspectiveTransform(edges, pts2)
-        frame = cv2.warpPerspective(frame, matrix, (210, 297))
+        roi = cv2.warpPerspective(frame, matrix, (h + 1, w + 1))
+        frame = cv2.rotate(roi, cv2.ROTATE_90_COUNTERCLOCKWISE)[15:]
         
-        lower_black = (0, 0, 0)
-        upper_black = (360, 255, 150) 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)   
-        mask = cv2.inRange(hsv, lower_black, upper_black)
-        mask2 = cv2.inRange(hsv, lower_green, upper_green)
-        mask = mask & (~mask2)
-
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in contours:
-            if cv2.contourArea(contour) > 100:  
-                peri = cv2.arcLength(contour, True)
-                approx = cv2.approxPolyDP(contour, 0.05 * peri, True)
-                cv2.drawContours(frame, [approx], 0, (0, 255, 0), 1)
+        mask = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), lower_green, upper_green)
+        edges = canny(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)) & (~mask)
+        lb = label(edges)
+        rps = regionprops(lb)
+        if rps:
+            areas = [rp.area for rp in rps]
+            mx = areas.index(max(areas))
+            rect = lb == (mx + 1)
+            nz = np.array(list(zip(*np.nonzero(rect))))
+            pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))
+            pnts[:, [0, 1]] = pnts[:, [1, 0]]
+            frame = cv2.drawContours(frame, [pnts], 0, (0, 255, 0), 2)
         
     cv2.imshow('Detected Green Squares bbox', frame)
-
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
