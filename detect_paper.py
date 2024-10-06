@@ -22,11 +22,23 @@ def increase_brightness(img, value=30):
     img = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
     return img
 
+def scale_contour(cnt, scale):
+    M = cv2.moments(cnt)
+    cx = int(M['m10']/M['m00'])
+    cy = int(M['m01']/M['m00'])
+ 
+    cnt_norm = cnt - [cx, cy]
+    cnt_scaled = cnt_norm * scale
+    cnt_scaled = cnt_scaled + [cx, cy]
+    cnt_scaled = cnt_scaled.astype(np.int32)
+ 
+    return cnt_scaled
+
 def detect_paper(frame, warp=False):
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     lower_black = (0, 0, 0)
-    upper_black = (180, 255, 45) 
+    upper_black = (180, 255, 100) 
     lower_green = np.array([30, 50, 50])
     upper_green = np.array([90, 255, 255])
 
@@ -54,11 +66,11 @@ def detect_paper(frame, warp=False):
                     md = np.linalg.norm(edge - pnt)
             edges.append(point.tolist())
         edges = reorder_quadrilateral_vertices(np.array(edges, dtype='float32'))
-        w, h = 260, 320
+        w, h = 600, 725
         pts2 = np.float32([[0, 0], [0, w], [h, w], [h, 0]])
         matrix = cv2.getPerspectiveTransform(edges, pts2)
         roi = cv2.warpPerspective(frame, matrix, (h + 1, w + 1))
-        frame = cv2.rotate(roi, cv2.ROTATE_90_COUNTERCLOCKWISE)[15:]
+        frame = cv2.rotate(roi, cv2.ROTATE_90_COUNTERCLOCKWISE)
         
         mask = cv2.inRange(cv2.cvtColor(frame, cv2.COLOR_BGR2HSV), lower_green, upper_green)
         edges = canny(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)) & (~mask)
@@ -70,6 +82,7 @@ def detect_paper(frame, warp=False):
             rect = lb == (mx + 1)
             nz = np.array(list(zip(*np.nonzero(rect))))
             pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))
+            pnts = scale_contour(pnts, 0.8)
             cv2.drawContours(frame, [pnts[:, [1, 0]]], 0, (0, 255, 0), 1)
             if warp:
                 return pnts, frame

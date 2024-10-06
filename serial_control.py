@@ -24,6 +24,7 @@ options = HandLandmarkerOptions(
 def servo(ser: serial.Serial, n):
     angle = 0
     if n == 'up': angle = 90
+    elif n == 'maxup': angle = 0
     elif n == 'down': angle = 135
     ser.write(f'M280 P0 S{angle}\n'.encode())
     ser.read_until(b'ok\n')
@@ -50,10 +51,11 @@ def send_gcode(gcodes: list):
     ser.write(b'G90\n')
     prevx, prevy = 0, 0
     timestamp = 0
+    i = 0
     try:
         flag_stop = False
         with HandLandmarker.create_from_options(options) as landmarker:
-            for gcode in gcodes:
+            while i < len(gcodes):
                 timestamp += 1
                 res, img = vid.read()
                 if not res:
@@ -63,13 +65,11 @@ def send_gcode(gcodes: list):
                 if detection.hand_landmarks:
                     if not flag_stop: 
                         print('Hand in the working space')
-                        flag_stop = True
-                        ser.write(b'G4\n')
-                        ser.read_until(b'ok\n')
                         print('Stopped painting')
                     continue
                 else: flag_stop = False
-                
+                gcode = gcodes[i]
+                i += 1
                 print(gcode)
                 if (gcode[0] != 'G'):
                     servo(ser, gcode)

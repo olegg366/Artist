@@ -454,7 +454,7 @@ class App():
         self.root.update()
 
 if __name__ == '__main__':
-    vid = cv2.VideoCapture(0)
+    vid = cv2.VideoCapture(2)
     app = App()
     # app.setup_progressbar()
     app.check_recognition()

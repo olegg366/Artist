@@ -25,7 +25,7 @@ def get_landmarks(detection_result):
 
     return res
 
-vid = cv2.VideoCapture(0)
+vid = cv2.VideoCapture(2)
 
 trt_func, _ = get_func_from_saved_model('mlmodels/static_tftrt')
 

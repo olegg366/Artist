@@ -85,11 +85,8 @@ def draw(tps: list, time, cnt, flag, cords, endflag, app: App):
         x = 640 - x
         x = arduino_map(x, 0, 640, 0, 1920)
         y = arduino_map(y, 0, 480, 0, 1080)
-        if flag and cnt['drag'] >= 3:
-            pg.dragTo(x, y, 0.0, _pause=False)
-        else:
-            pg.moveTo(x, y, 0.0, _pause=False)
-            pg.click()
+        if flag:
+            pg.mouseDown(x, y, _pause=False)
     elif 'Pointing_Up' in tps or ('Click' in tps and not flag):
         x, y = cords[-1]
         x = 640 - x
@@ -98,13 +95,18 @@ def draw(tps: list, time, cnt, flag, cords, endflag, app: App):
         cnt['clean'] = 0
         cnt['end'] = 0
         cnt['drag'] = 0
-        pg.moveTo(x, y, 0.0, _pause=False)
+        try: pg.mouseUp(x, y, _pause=False)
+        except AttributeError: pg.moveTo(x, y, 0, _pause=False)
     elif flag and tps.count('Open_Palm') == 2:
+        try: pg.mouseUp(_pause=False)
+        except AttributeError: pass
         cnt['end'] = 0
         app.delete()
         time['clean'] = tt()
         cnt['clean'] = 0
     else:
+        try: pg.mouseUp(_pause=False)
+        except AttributeError: pass
         cnt['clean'] = 0
         if 'Thumb_Up' in tps and tt() - time['start'] > 10: 
             if cnt['end'] > 10:

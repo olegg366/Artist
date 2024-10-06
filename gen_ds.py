@@ -4,7 +4,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-vid = cv2.VideoCapture(0)
+vid = cv2.VideoCapture(2)
 
 model_path = 'mlmodels/hand_landmarker.task'
 BaseOptions = mp.tasks.BaseOptions

@@ -43,6 +43,8 @@ import cv2
 from math import sin, cos, acos, sqrt, pi
 from detect_paper import detect_paper
 
+from serial import Serial
+
 lib = c.CDLL('/home/olegg/Artist/lib/trajectory.so')
 
 DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
@@ -144,27 +146,39 @@ def draw_img(img, crop=False):
     trajectory = np.array(trajectory)
     points = []
     vid = cv2.VideoCapture(0)
-    flag = False
+    vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    vid.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
     cnt = 0
-    st = time()
     print("Get ready...")
-    while True:
-        ret, frame = vid.read()
-        if not ret:
-            print('Cant')
-            continue
-        if time() - st >= 2:
-            flag = True
-        if flag: 
+    serial = Serial('/dev/ttyACM0', 115200)
+    sleep(2)
+    serial.write(b'G90\n')
+    serial.write(b'G1 X450 F16000\n')
+    serial.read_until(b'ok\n')
+    sleep(2)
+    try:
+        while True:
+            ret, frame = vid.read()
+            if not ret:
+                print('Cant')
+                continue
             points, frame = detect_paper(frame, warp=True)
             if points is not None:
-                # points.append(pnts)
                 cnt += 1
-        if cnt == 50:
-            break
-        cv2.imshow('img', frame)
-        cv2.waitKey(1)
+            if cnt == 50:
+                break
+            # cv2.imshow('img', frame)
+            # cv2.waitKey(1)
+    except KeyboardInterrupt:
+        vid.release()
+        serial.write(b'G1 X0 F16000\n')
+        serial.close()
+        raise(KeyboardInterrupt)
     vid.release()
+    serial.write(b'G1 X0 F16000\n')
+    serial.read_until(b'ok\n')
+    sleep(1)
+    serial.close()
     w, h = sorted([dist(*points[0], *points[1]), dist(*points[1], *points[2])])
     for i in range(1, len(points)):
         x = dist(*points[i], *points[(i + 1) % len(points)])
@@ -183,23 +197,21 @@ def draw_img(img, crop=False):
     if np.max(shift_coords(sx, sy, pi / 2 - angle, trajectory[index]) > max(frame.shape)): angle = pi/2 + angle
     else: angle = pi / 2 - angle
     trajectory[index] = shift_coords(sx, sy, angle, trajectory[index])
-    print(points)
-    print(sx, sy, angle)
     # print(trajectory.tolist())
-    ax = plt.subplot()
-    ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    i = 0
-    end = 0
-    while i < len(trajectory):
-        while i < len(trajectory) and trajectory[i, 0] != -1e9:
-            i += 1
-        i += 1
-        end = i
-        while i < len(trajectory) and trajectory[i, 0] != 1e9:
-            i += 1
-        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    plt.get_current_fig_manager().full_screen_toggle()
-    plt.show()
+    # ax = plt.subplot()
+    # ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    # i = 0
+    # end = 0
+    # while i < len(trajectory):
+    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
+    #         i += 1
+    #     i += 1
+    #     end = i
+    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
+    #         i += 1
+    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+    # plt.get_current_fig_manager().full_screen_toggle()
+    # plt.show()
     
     print('sending gcode...')
     gcode = get_gcode(trajectory)

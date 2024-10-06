@@ -56,7 +56,7 @@ options = vision.HandLandmarkerOptions(base_options=base_options,
                                        running_mode=vision.RunningMode.VIDEO)
 detector = vision.HandLandmarker.create_from_options(options)
 
-vid = cv2.VideoCapture(0)
+vid = cv2.VideoCapture(2)
 t = 0
 while True:
   res, frame = vid.read()

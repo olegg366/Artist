@@ -9,7 +9,7 @@ import tensorflow as tf
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.saved_model import tag_constants
 
-# from DeepCache import DeepCacheSDHelper
+from DeepCache import DeepCacheSDHelper
 from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler, ControlNetModel
 
 from PIL import Image
@@ -56,19 +56,19 @@ def generate(img, prompt):
     img = Image.fromarray((image <= t).astype('uint8') * 255)
     print('Setting up stable diffusion...')
     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                             torch_dtype=torch.float32)
+                                             torch_dtype=torch.float32).to('cuda')
     pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
                                                             controlnet=controlnet,
                                                             safety_checker=None, 
                                                             use_safetensors=True,
-                                                            torch_dtype=torch.float32)
+                                                            torch_dtype=torch.float32).to('cuda')
 
-    # helper = DeepCacheSDHelper(pipe=pipe)
-    # helper.set_params(
-    #     cache_interval=5,
-    #     cache_branch_id=0,
-    # )
-    # helper.enable()
+    helper = DeepCacheSDHelper(pipe=pipe)
+    helper.set_params(
+        cache_interval=5,
+        cache_branch_id=0,
+    )
+    helper.enable()
 
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
 
@@ -98,7 +98,7 @@ print('Successfully set up widget.')
 
 if __name__ == '__main__':
     #камера
-    vid = cv2.VideoCapture(0)
+    vid = cv2.VideoCapture(2)
 
     #модель распознавания жестов
     print('Loading gesture recognizer...')
@@ -221,7 +221,8 @@ if __name__ == '__main__':
                         
                         try:
                             gen = generate(scribble, prompt + ', russian, single color, easy drawing')
-                        except:
+                        except Exception as e:
+                            print(e)
                             ld = os.listdir('images/norm/')
                             file = ''
                             for fn in ld:
@@ -243,7 +244,7 @@ if __name__ == '__main__':
                         app.display(gen)
                         
                         sleep(3)
-                        draw_img(gen, k=512/370)
+                        draw_img(gen)
                         
                         app.change_status()                   
                         
