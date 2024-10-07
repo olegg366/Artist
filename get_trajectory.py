@@ -87,19 +87,10 @@ def compute_image(img, d, sx, sy):
     
     return ans
 
-def dispersion(x):
-    return ((x - x.mean()) ** 2).sum() / x.size
-
 def get_colors(img, crop):
-    r, g, b = [img[:, :, i] for i in range(3)]
-    dr, dg, db = map(dispersion, [r, g, b])
-    mx = max(dr, dg, db)
-    if mx == dr:
-        t = canny(r)
-    elif mx == dg:
-        t = canny(g)
-    else:
-        t = canny(b)
+    if np.max(img) <= 1:
+        img *= 255
+    t = canny(cv2.cvtColor(img.astype('uint8'), cv2.COLOR_RGB2GRAY))
         
     t = binary_dilation(t, square(5))
     if crop:
@@ -120,7 +111,7 @@ def get_angle(x1, y1, x2, y2):
 def dist(x1, y1, x2, y2):
     return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
         
-def draw_img(img, crop=False):
+def draw_img(img, crop=False, show=False):
     if not isinstance(img, np.ndarray):
         img = np.array(img)
     img = img[::-1]
@@ -159,6 +150,7 @@ def draw_img(img, crop=False):
     try:
         while True:
             ret, frame = vid.read()
+            frame = cv2.flip(frame, 1)
             if not ret:
                 print('Cant')
                 continue
@@ -167,8 +159,9 @@ def draw_img(img, crop=False):
                 cnt += 1
             if cnt == 50:
                 break
-            # cv2.imshow('img', frame)
-            # cv2.waitKey(1)
+            if show:
+                cv2.imshow('img', frame)
+                cv2.waitKey(1)
     except KeyboardInterrupt:
         vid.release()
         serial.write(b'G1 X0 F16000\n')
@@ -198,20 +191,22 @@ def draw_img(img, crop=False):
     else: angle = pi / 2 - angle
     trajectory[index] = shift_coords(sx, sy, angle, trajectory[index])
     # print(trajectory.tolist())
-    # ax = plt.subplot()
-    # ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    # i = 0
-    # end = 0
-    # while i < len(trajectory):
-    #     while i < len(trajectory) and trajectory[i, 0] != -1e9:
-    #         i += 1
-    #     i += 1
-    #     end = i
-    #     while i < len(trajectory) and trajectory[i, 0] != 1e9:
-    #         i += 1
-    #     ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-    # plt.get_current_fig_manager().full_screen_toggle()
-    # plt.show()
+    trajectory = trajectory[:, [1, 0]]
+    if show:
+        ax = plt.subplot()
+        ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        i = 0
+        end = 0
+        while i < len(trajectory):
+            while i < len(trajectory) and trajectory[i, 0] != -1e9:
+                i += 1
+            i += 1
+            end = i
+            while i < len(trajectory) and trajectory[i, 0] != 1e9:
+                i += 1
+            ax.add_line(Line2D(trajectory[end:i, 0], trajectory[end:i, 1], lw=1, color='blue'))
+        plt.get_current_fig_manager().full_screen_toggle()
+        plt.show()
     
     print('sending gcode...')
     gcode = get_gcode(trajectory)

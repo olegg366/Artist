@@ -98,6 +98,7 @@ if __name__ == '__main__':
     ser = serial.Serial('/dev/ttyACM0', 115200)
     sleep(2)
     ser.write(b'G90\n')
+    print(ser.read_until(b'ok\n').decode())
     try:
         while True:
             n = input('Enter your command: ')
@@ -107,7 +108,8 @@ if __name__ == '__main__':
                 servo(ser, n)
             else:
                 ser.write((n + '\n').encode())
-                
+            print(ser.read_until(b'ok\n').decode())
+                                                                
     except KeyboardInterrupt:
         servo(ser, 'maxup')
         ser.write('G1 X0 Y0 F16000\n'.encode())

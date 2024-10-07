@@ -82,12 +82,14 @@ def detect_paper(frame, warp=False):
             rect = lb == (mx + 1)
             nz = np.array(list(zip(*np.nonzero(rect))))
             pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))
-            pnts = scale_contour(pnts, 0.8)
-            cv2.drawContours(frame, [pnts[:, [1, 0]]], 0, (0, 255, 0), 1)
-            if warp:
-                return pnts, frame
-            else:
-                return pnts
+            if pnts.size:
+                print(pnts)
+                pnts = scale_contour(pnts, 0.8)
+                cv2.drawContours(frame, [pnts[:, [1, 0]]], 0, (0, 255, 0), 1)
+                if warp:
+                    return pnts, frame
+                else:
+                    return pnts
     if warp:
         return None, frame
     else:
