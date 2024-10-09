@@ -1,5 +1,5 @@
 import pickle
-from main import draw_img, get_gcode, send_gcode
+from main import draw_img, generate_gcode, send_gcode
 from PIL import Image
 import numpy as np
 import cv2

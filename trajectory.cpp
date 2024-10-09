@@ -13,191 +13,141 @@
 using namespace std;
 
 typedef double ld;
-typedef vector <vector <vector <ld>>> vvvd;
-typedef vector <vector <ld>> vvd;
-typedef vector <vector <int>> vvi;
-typedef vector <int> vi;
-typedef vector <ld> vd;
-typedef vector <pair <int, int>> vc;
+typedef vector<vector<vector<ld>>> Matrix3D;
+typedef vector<vector<ld>> Matrix2D;
+typedef vector<vector<int>> IntMatrix2D;
+typedef vector<int> IntVector;
+typedef vector<ld> Vector;
+typedef vector<pair<int, int>> PointVector;
 
 extern "C"
 {
-    bool eqvdvd(const vd &a, const vd &b) {
-        if (a.size() != b.size()) return false; 
-        return equal(execution::par, a.begin(), a.end(), b.begin());
-    }
-
-    bool neqvdvd (const vd &a, const vd &b)
-    {
-        return !eqvdvd(a, b);
-    }
-
-    bool eqvvivvi (const vvi &a, const vvi &b)
-    {
-        if (a.size() != b.size() || a[0].size() != b[0].size()) return false; 
-
-        for (int x = 0; x < a.size(); ++x) {
-            auto [it1, it2] = mismatch(execution::par, a[x].begin(), a[x].end(), b[x].begin());
-            if (it1 != a[x].end()) return false; 
-        }
-        return true;
-    }
-
-    bool neqvii(vvi a, int b) {
-        return any_of(a.begin(), a.end(), [=](const std::vector<int> row) {
+    // Проверяет, есть ли в матрице элементы, не равные заданному значению
+    bool has_elements_not_equal(const IntMatrix2D &matrix, int value) {
+        return any_of(matrix.begin(), matrix.end(), [=](const vector<int> &row) {
             return any_of(execution::par, row.begin(), row.end(), [=](int elem) {
-                return elem != b;
+                return elem != value;
             });
         });
     }
 
-    vd subvdvd(const vd &a, const vd &b) {
-        vd ans(a.size());
-        transform(execution::par, a.begin(), a.end(), b.begin(), ans.begin(), [](ld x, ld y) {
+    // Вычитает два вектора
+    Vector subtract_vectors(const Vector &a, const Vector &b) {
+        Vector result(a.size());
+        transform(execution::par, a.begin(), a.end(), b.begin(), result.begin(), [](ld x, ld y) {
             return x - y;
         });
-        return ans;
+        return result;
     }
 
-    vvd subvdvvd (const vd a, const vvd b)
-    {
-        vvd ans(b.size());
-        for (int i = 0; i < b.size(); i++) ans[i] = subvdvd(a, b[i]);
-        return ans;
-    }
-
-    vvi vand(const vvi &a, const vvi &b) {
-        vvi ans(a.size(), vector<int>(a[0].size()));
-        for (size_t i = 0; i < a.size(); ++i) {
-            transform(execution::par, a[i].begin(), a[i].end(), b[i].begin(), ans[i].begin(), [](int x, int y) {
-                return x && y;
-            });
+    // Вычитает вектор из каждой строки матрицы
+    Matrix2D subtract_vector_from_matrix(const Vector &vector, const Matrix2D &matrix) {
+        Matrix2D result(matrix.size());
+        for (int i = 0; i < matrix.size(); i++) {
+            result[i] = subtract_vectors(vector, matrix[i]);
         }
-        return ans;
+        return result;
     }
 
-    vvi vnot(const vvi &a)
-    {
-        vvi ans(a.size(), vi(a[0].size()));
-        for (int i = 0; i < a.size(); i++)
-        {
-            transform(execution::par, a[i].begin(), a[i].end(), ans[i].begin(), [](int x) {return !x;});
+    // Возвращает вектор абсолютных значений элементов вектора
+    Vector absolute_values(const Vector &vector) {
+        Vector result(vector.size());
+        transform(execution::par, vector.begin(), vector.end(), result.begin(), [](ld a) {
+            return abs(a);
+        });
+        return result;
+    }
+
+    // Возвращает сумму элементов вектора
+    ld sum_of_vector(const Vector &vector) {
+        ld result = reduce(execution::par, vector.begin(), vector.end(), 0);
+        return result;
+    }
+
+    // Возвращает вектор сумм элементов каждой строки матрицы
+    Vector sum_of_matrix_rows(const Matrix2D &matrix) {
+        Vector result(matrix.size());
+        for (int i = 0; i < matrix.size(); i++) {
+            result[i] = sum_of_vector(matrix[i]);
         }
-        return ans;
+        return result;
     }
 
-    vd absvd(const vd &x)
-    {
-        vd ans(x.size());
-        transform(execution::par, x.begin(), x.end(), ans.begin(), [](ld a) {return abs(a);});
-        return ans;
-    }
+    // Вектор смещений для обхода соседних точек
+    PointVector offsets = {
+        make_pair(-1, 0), make_pair(0, -1), make_pair(0, 1), make_pair(1, 0),
+        make_pair(-1, -1), make_pair(-1, 1), make_pair(1, -1), make_pair(1, 1)
+    };
 
-    ld sumvd(const vd &x)
-    {
-        ld ans = reduce(execution::par, x.begin(), x.end(), 0);
-        return ans;
-    }
-
-    vd sumvvd(const vvd &x)
-    {
-        vd ans(x.size());
-        for (int i = 0; i < x.size(); i++) ans[i] = sumvd(x[i]);
-        return ans;
-    }
-
-    vvi inside_or(vector <vc> &arr)
-    {
-        vvi ans(arr.size(), vi(ans[0].size(), 0));
-        for (int x = 0; x < arr.size(); x++)
-        {
-            transform(execution::par, arr[x].begin(), arr[x].end(), ans[x].begin(), [](pair <int, int> &cords) {return cords.first || cords.second;});
-        }
-        return ans;
-    }
-
-    vc var = {make_pair(-1, 0), make_pair(0, -1), make_pair(0, 1), make_pair(1, 0), make_pair(-1, -1), make_pair(-1, 1), make_pair(1, -1), make_pair(1, 1)};
-
-    bool in_image(int x, int y, pair <int, int> shape)
-    {
+    // Проверяет, находится ли точка внутри изображения
+    bool is_point_in_image(int x, int y, pair<int, int> shape) {
         return x >= 0 && y >= 0 && x < shape.first && y < shape.second;
     }
 
-    int argmin(const vd &arr)
-    {
-        int idx = -1;
-        ld mx = -1e9;
-        for (int i = 0; i < arr.size(); i++)
-        {
-            if (arr[i] > mx)
-            {
-                mx = arr[i];
-                idx = i;
+    // Возвращает индекс минимального элемента в векторе
+    int index_of_min_element(const Vector &vector) {
+        int index = -1;
+        ld min_value = 1e9;
+        for (int i = 0; i < vector.size(); i++) {
+            if (vector[i] < min_value) {
+                min_value = vector[i];
+                index = i;
             }
         }
-        return idx;
+        return index;
     }
 
-    vvd cmark(vvd &img, vvd &itsa)
-    {
-        vvd nimg(img.size(), vd (3));
-        vd zrs = {0, 0, 0};
-        for (int i = 0; i < img.size(); i++)
-        {
-            vd px = img[i];
-            if (px == zrs) nimg[i] = itsa[argmin(absvd(sumvvd(subvdvvd(px, itsa))))];
+    // Маркирует изображение на основе цветовых шаблонов
+    Matrix2D mark_image(Matrix2D &image, Matrix2D &color_patterns) {
+        Matrix2D new_image(image.size(), Vector(3));
+        Vector zero_vector = {0, 0, 0};
+        for (int i = 0; i < image.size(); i++) {
+            Vector pixel = image[i];
+            if (pixel == zero_vector) {
+                new_image[i] = color_patterns[index_of_min_element(absolute_values(sum_of_matrix_rows(subtract_vector_from_matrix(pixel, color_patterns))))];
+            }
         }
-        return nimg;
+        return new_image;
     }
 
-    void cfill(int x, int y, vvi &vis, vvvd &img)
-    {
-        vvi vis1 = vis;
-        vis[x][y] = 1;
-        deque <pair <vi, vd>> ln = {{{x, y, 0}, {0, 0, 0}}};
-        int xn, yn;
-        vd clr(3);
-        bool flg;
-        vd zrs = {0, 0, 0};
-        pair <int, int> shp = {img.size(), img[0].size()};
-        while (ln.size() != 0)
-        {
-            int sz = ln.size();
-            for (int i = 0; i < sz; i++)
-            {
-                pair <vi, vd> val = ln.front();
-                x = val.first[0];
-                y = val.first[1];
-                flg = val.first[2];
-                clr = val.second;
-                ln.pop_front();
-                for (int j = 0; j < var.size(); j++)
-                {
-                    int dx = var[j].first, dy = var[j].second;
-                    xn = x + dx;
-                    yn = y + dy;
-                    if (in_image(xn, yn, shp))
-                    {
-                        if (flg)
-                        {
-                            img[xn][yn] = clr;
-                            if (!vis1[xn][yn])
-                            {
-                                ln.push_back({{xn, yn, flg}, clr});
-                                vis1[xn][yn] = 1;
+    // Заполняет область на изображении
+    void fill_area(int x, int y, IntMatrix2D &visited, Matrix3D &image) {
+        IntMatrix2D visited_copy = visited;
+        visited[x][y] = 1;
+        deque<pair<IntVector, Vector>> queue = {{{x, y, 0}, {0, 0, 0}}};
+        int new_x, new_y;
+        Vector color(3);
+        bool flag;
+        Vector zero_vector = {0, 0, 0};
+        pair<int, int> shape = {image.size(), image[0].size()};
+        while (!queue.empty()) {
+            int size = queue.size();
+            for (int i = 0; i < size; i++) {
+                pair<IntVector, Vector> value = queue.front();
+                x = value.first[0];
+                y = value.first[1];
+                flag = value.first[2];
+                color = value.second;
+                queue.pop_front();
+                for (int j = 0; j < offsets.size(); j++) {
+                    int dx = offsets[j].first, dy = offsets[j].second;
+                    new_x = x + dx;
+                    new_y = y + dy;
+                    if (is_point_in_image(new_x, new_y, shape)) {
+                        if (flag) {
+                            image[new_x][new_y] = color;
+                            if (!visited_copy[new_x][new_y]) {
+                                queue.push_back({{new_x, new_y, flag}, color});
+                                visited_copy[new_x][new_y] = 1;
                             }
-                        }
-                        else if (img[xn][yn] != zrs)
-                        {
-                            clr = img[xn][yn];
-                            img[x][y] = clr;
-                            flg = 1;
-                            ln.push_back({{xn, yn, flg}, clr});
-                        }
-                        else if (!vis[xn][yn])
-                        {
-                            vis[xn][yn] = 1;
-                            ln.push_back({{xn, yn, flg}, clr});
+                        } else if (image[new_x][new_y] != zero_vector) {
+                            color = image[new_x][new_y];
+                            image[x][y] = color;
+                            flag = 1;
+                            queue.push_back({{new_x, new_y, flag}, color});
+                        } else if (!visited[new_x][new_y]) {
+                            visited[new_x][new_y] = 1;
+                            queue.push_back({{new_x, new_y, flag}, color});
                         }
                     }
                 }
@@ -205,517 +155,454 @@ extern "C"
         }
     }
 
-    vc nonzero(vvi &vec)
-    {
-        vc ans;
-        for (int x = 0; x < vec.size(); x++)
-        {
-            for (int y = 0; y < vec[0].size(); y++)
-            {
-                if (vec[x][y]) ans.push_back(make_pair(x, y));
-            }
-        }
-        return ans;
-    }
-
-    bool check_near(int x, int y, vc &deltas, vvi &bimage)
-    {
-        int xn, yn, dtx, dty;
-        pair <int, int> shp = {bimage.size(), bimage[0].size()};
-        for (int i = 0; i < deltas.size(); i++)
-        {
-            dtx = deltas[i].first;
-            dty = deltas[i].second;
-            xn = x + dtx;
-            yn = y + dty;
-            if (in_image(xn, yn, shp))
-            {
-                if (!bimage[xn][yn]) return 0;
-            }
-            else return 0;
-        }
-        return 1;
-    }
-
-    pair <int, int> random_point(vvi &bimage, vc &deltas)
-    {
-        int x = -1, y = -1;
-        vc nz = nonzero(bimage);
-        int cnt = 0;
-        while (cnt < nz.size() && !check_near(x, y, deltas, bimage))
-        {
-            x = nz[cnt].first;
-            y = nz[cnt].second;
-            cnt++;
-        }
-        if (x == -1) return make_pair(x, y);
-        if (!check_near(x, y, deltas, bimage)) return make_pair(-1, -1);
-        return make_pair(x, y);
-    }
-
-    pair <int, int> random_pointf(vvi &bimage, vc &deltas, vvi &filter)
-    {
-        int x = -1, y = -1;
-        vc nz = nonzero(bimage);
-        int cnt = 0;
-        pair <int, int> shp = make_pair(filter.size(), filter[0].size());
-        while (cnt < nz.size())
-        {
-            if (in_image(x, y, shp))
-            {
-                if (check_near(x, y, deltas, filter)) break;
-            }
-            x = nz[cnt].first;
-            y = nz[cnt].second;
-            cnt++;
-        }
-        return make_pair(x, y);
-    }
-
-    void get_deltas(vc &deltas2, vc &mxdeltas, vc &deltas, int d)
-    {
-        deltas.push_back(make_pair(0, 0));
-        for (int x = -d - 2; x <= d + 2; x++)
-        {
-            for (int y = -d - 2; y <= d + 2; y++)
-            {
-                if (x == 0 && y == 0) continue;
-                if (sqrt((ld) (x * x + y * y)) <= (d / 2 + 0.5))
-                {
-                    deltas.push_back(make_pair(x, y));
-                    if (abs(sqrt((ld) (x * x + y * y)) - d / 2) <= 0.5) 
-                        mxdeltas.push_back(make_pair(x, y));
+    // Возвращает вектор координат ненулевых элементов матрицы
+    PointVector get_nonzero_points(const IntMatrix2D &matrix) {
+        PointVector result;
+        for (int x = 0; x < matrix.size(); x++) {
+            for (int y = 0; y < matrix[0].size(); y++) {
+                if (matrix[x][y]) {
+                    result.push_back(make_pair(x, y));
                 }
-                if (abs(sqrt((ld) (x * x + y * y)) - (d + 2)) <= 0.5) 
+            }
+        }
+        return result;
+    }
+
+    // Проверяет, есть ли вокруг точки ненулевые элементы
+    bool check_nearby_points(int x, int y, const PointVector &deltas, const IntMatrix2D &binary_image) {
+        int new_x, new_y, dx, dy;
+        pair<int, int> shape = {binary_image.size(), binary_image[0].size()};
+        for (int i = 0; i < deltas.size(); i++) {
+            dx = deltas[i].first;
+            dy = deltas[i].second;
+            new_x = x + dx;
+            new_y = y + dy;
+            if (is_point_in_image(new_x, new_y, shape)) {
+                if (!binary_image[new_x][new_y]) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Возвращает случайную точку, удовлетворяющую условиям
+    pair<int, int> get_random_point(const IntMatrix2D &binary_image, const PointVector &deltas) {
+        int x = -1, y = -1;
+        PointVector nonzero_points = get_nonzero_points(binary_image);
+        int count = 0;
+        while (count < nonzero_points.size() && !check_nearby_points(x, y, deltas, binary_image)) {
+            x = nonzero_points[count].first;
+            y = nonzero_points[count].second;
+            count++;
+        }
+        if (x == -1) {
+            return make_pair(x, y);
+        }
+        if (!check_nearby_points(x, y, deltas, binary_image)) {
+            return make_pair(-1, -1);
+        }
+        return make_pair(x, y);
+    }
+
+    // Возвращает случайную точку, удовлетворяющую условиям с фильтром
+    pair<int, int> get_random_point_with_filter(const IntMatrix2D &binary_image, const PointVector &deltas, const IntMatrix2D &filter) {
+        int x = -1, y = -1;
+        PointVector nonzero_points = get_nonzero_points(binary_image);
+        int count = 0;
+        pair<int, int> shape = make_pair(filter.size(), filter[0].size());
+        while (count < nonzero_points.size()) {
+            if (is_point_in_image(x, y, shape)) {
+                if (check_nearby_points(x, y, deltas, filter)) {
+                    break;
+                }
+            }
+            x = nonzero_points[count].first;
+            y = nonzero_points[count].second;
+            count++;
+        }
+        return make_pair(x, y);
+    }
+
+    // Генерирует вектор смещений для обхода точек
+    void generate_deltas(PointVector &deltas2, PointVector &max_deltas, PointVector &deltas, int distance) {
+        deltas.push_back(make_pair(0, 0));
+        for (int x = -distance - 2; x <= distance + 2; x++) {
+            for (int y = -distance - 2; y <= distance + 2; y++) {
+                if (x == 0 && y == 0) {
+                    continue;
+                }
+                if (sqrt((ld)(x * x + y * y)) <= (distance / 2 + 0.5)) {
+                    deltas.push_back(make_pair(x, y));
+                    if (abs(sqrt((ld)(x * x + y * y)) - distance / 2) <= 0.5) {
+                        max_deltas.push_back(make_pair(x, y));
+                    }
+                }
+                if (abs(sqrt((ld)(x * x + y * y)) - (distance + 2)) <= 0.5) {
                     deltas2.push_back(make_pair(x, y));
+                }
             }
         }
     }
 
-    vc get_path(ld bx, ld by, ld tx, ld ty)
-    {
-        vc ans;
+    // Возвращает путь между двумя точками
+    PointVector get_path(ld start_x, ld start_y, ld end_x, ld end_y) {
+        PointVector result;
         ld vx, vy;
-        vx = tx - bx;
-        vy = ty - by;
-        ld len = sqrt(vx * vx + vy * vy);
-        if (len == 0)
-        {
-            ans.push_back(make_pair(bx, by));
-            return ans;
+        vx = end_x - start_x;
+        vy = end_y - start_y;
+        ld length = sqrt(vx * vx + vy * vy);
+        if (length == 0) {
+            result.push_back(make_pair(start_x, start_y));
+            return result;
         }
-        vx /= len;
-        vy /= len;
-        ld x = bx, y = by;
+        vx /= length;
+        vy /= length;
+        ld x = start_x, y = start_y;
         ld i = 0;
-        bool cond = 1;
-        while (cond)
-        {
-            ans.push_back(make_pair(x, y));
-            x = bx + i * vx;
-            y = by + i * vy;
+        bool condition = true;
+        while (condition) {
+            result.push_back(make_pair(x, y));
+            x = start_x + i * vx;
+            y = start_y + i * vy;
             i++;
-            cond = !((abs(x - tx) < 1e-6) && (abs(y - ty) < 1e-6));
-            if (tx - x != 0) cond = cond && ((x - bx) / (tx - x) >= 0);
-            if (ty - y != 0) cond = cond && ((y - by) / (ty - y) >= 0);
-        }
-        ans.push_back(make_pair(tx, ty));
-        return ans;
-    }
-
-    void save(vvi &image)
-    {
-        int x, y, r, g, b;
-        int w = image.size(), h = image[0].size();
-        FILE *f;
-        unsigned char *img = NULL;
-        int filesize = 54 + 3 * w * h;  //w is your image width, h is image height, both int
-
-        img = (unsigned char *)malloc(3 * w * h);
-        memset(img, 0, 3 * w * h);
-
-        for(int i = 0; i < w; i++)
-        {
-            for(int j = 0; j < h; j++)
-            {
-                x = i; y = (h - 1) - j;
-                r = image[i][j] * 255;
-                g = image[i][j] * 255;
-                b = image[i][j] * 255;
-                if (r > 255) r = 255;
-                if (g > 255) g = 255;
-                if (b > 255) b = 255;
-                img[(x + y * w) * 3 + 2] = (unsigned char)(r);
-                img[(x + y * w) * 3 + 1] = (unsigned char)(g);
-                img[(x + y * w) * 3 + 0] = (unsigned char)(b);
+            condition = !((abs(x - end_x) < 1e-6) && (abs(y - end_y) < 1e-6));
+            if (end_x - x != 0) {
+                condition = condition && ((x - start_x) / (end_x - x) >= 0);
+            }
+            if (end_y - y != 0) {
+                condition = condition && ((y - start_y) / (end_y - y) >= 0);
             }
         }
-
-        unsigned char bmpfileheader[14] = {'B','M', 0,0,0,0, 0,0, 0,0, 54,0,0,0};
-        unsigned char bmpinfoheader[40] = {40,0,0,0, 0,0,0,0, 0,0,0,0, 1,0, 24,0};
-        unsigned char bmppad[3] = {0,0,0};
-
-        bmpfileheader[ 2] = (unsigned char)(filesize    );
-        bmpfileheader[ 3] = (unsigned char)(filesize>> 8);
-        bmpfileheader[ 4] = (unsigned char)(filesize>>16);
-        bmpfileheader[ 5] = (unsigned char)(filesize>>24);
-
-        bmpinfoheader[ 4] = (unsigned char)(       w    );
-        bmpinfoheader[ 5] = (unsigned char)(       w>> 8);
-        bmpinfoheader[ 6] = (unsigned char)(       w>>16);
-        bmpinfoheader[ 7] = (unsigned char)(       w>>24);
-        bmpinfoheader[ 8] = (unsigned char)(       h    );
-        bmpinfoheader[ 9] = (unsigned char)(       h>> 8);
-        bmpinfoheader[10] = (unsigned char)(       h>>16);
-        bmpinfoheader[11] = (unsigned char)(       h>>24);
-
-        f = fopen("images/img.bmp", "wb");
-        fwrite(bmpfileheader, 1, 14, f);
-        fwrite(bmpinfoheader, 1, 40, f);
-        for(int i = 0; i < h; i++)
-        {
-            fwrite(img + (w * (h - i - 1) * 3), 3, w, f);
-            fwrite(bmppad, 1, (4 - (w * 3) % 4) % 4, f);
-        }
-
-        free(img);
-        fclose(f);
+        result.push_back(make_pair(end_x, end_y));
+        return result;
     }
 
-    void get_trajectory(vvi &bimage, int d, int sx, int sy, vc &ans)
-    {
-        vc deltas2, mxdeltas, deltas;
-        get_deltas(deltas2, mxdeltas, deltas, d);
+    // Генерирует траекторию на основе бинарного изображения
+    void generate_trajectory(IntMatrix2D &binary_image, int distance, int start_x, int start_y, PointVector &result) {
+        PointVector deltas2, max_deltas, deltas;
+        generate_deltas(deltas2, max_deltas, deltas, distance);
 
-        vvi filter = bimage;
+        IntMatrix2D filter = binary_image;
 
-        int x, y, xn, yn, xp, yp, it, xnn, ynn;
-        bool change, flagfill = 1;
-        
-        pair <int, int> res = random_point(bimage, mxdeltas);
-        x = res.first;
-        y = res.second;
+        int x, y, new_x, new_y, prev_x, prev_y, iteration, new_new_x, new_new_y;
+        bool change, fill_flag = true;
 
-        ans.push_back(make_pair(x + sx, y + sy));
-        ans.push_back(make_pair(-1e9, -1e9));
+        pair<int, int> random_point_result = get_random_point(binary_image, max_deltas);
+        x = random_point_result.first;
+        y = random_point_result.second;
 
-        xp = 0;
-        yp = 0;
-        it = 0;
+        result.push_back(make_pair(x + start_x, y + start_y));
+        result.push_back(make_pair(-1e9, -1e9));
 
-        vc path;
-        pair <int, int> shp = {bimage.size(), bimage[0].size()};
+        prev_x = 0;
+        prev_y = 0;
+        iteration = 0;
+
+        PointVector path;
+        pair<int, int> shape = {binary_image.size(), binary_image[0].size()};
 
         int zero = 0;
-        while (neqvii(bimage, zero))
-        {
-            change = 0;
-            flagfill = 1;
-            for (pair <int, int> dt : deltas2)
-            {
-                xn = x + dt.first; yn = y + dt.second;
-                if (in_image(xn, yn, shp))
-                {
-                    if (bimage[xn][yn] && check_near(xn, yn, deltas, bimage))
-                    {
-                        x = xn; y = yn;
-                        ans.push_back(make_pair(x + sx, y + sy));
-                        change = 1;
+        while (has_elements_not_equal(binary_image, zero)) {
+            change = false;
+            fill_flag = true;
+            for (pair<int, int> delta : deltas2) {
+                new_x = x + delta.first;
+                new_y = y + delta.second;
+                if (is_point_in_image(new_x, new_y, shape)) {
+                    if (binary_image[new_x][new_y] && check_nearby_points(new_x, new_y, deltas, binary_image)) {
+                        x = new_x;
+                        y = new_y;
+                        result.push_back(make_pair(x + start_x, y + start_y));
+                        change = true;
                         break;
                     }
                 }
             }
 
-            if (!change)
-            {
-                res = random_point(bimage, deltas);
-                x = res.first; y = res.second;
-                if (x == -1)
-                {
-                    res = random_pointf(bimage, deltas, filter);
-                    x = res.first; y = res.second;
+            if (!change) {
+                random_point_result = get_random_point(binary_image, deltas);
+                x = random_point_result.first;
+                y = random_point_result.second;
+                if (x == -1) {
+                    random_point_result = get_random_point_with_filter(binary_image, deltas, filter);
+                    x = random_point_result.first;
+                    y = random_point_result.second;
                 }
-                if (bimage[x][y])
-                {
-                    ans.push_back(make_pair(1e9, 1e9));
-                    ans.push_back(make_pair(x + sx, y + sy));
-                    ans.push_back(make_pair(-1e9, -1e9));
-                    ans.push_back(make_pair(x + sx, y + sy));
-                }    
-                flagfill = 0;
+                if (binary_image[x][y]) {
+                    result.push_back(make_pair(1e9, 1e9));
+                    result.push_back(make_pair(x + start_x, y + start_y));
+                    result.push_back(make_pair(-1e9, -1e9));
+                    result.push_back(make_pair(x + start_x, y + start_y));
+                }
+                fill_flag = false;
             }
 
-            if (flagfill && it)
-            {
-                path = get_path(xp, yp, x, y);
-                for (pair <int, int> xyn : path)
-                {
-                    xn = xyn.first, yn = xyn.second;
-                    
-                    for (pair <int, int> dt : deltas)
-                    {
-                        xnn = xn + dt.first; ynn = yn + dt.second;
-                        if (in_image(xnn, ynn, shp)) bimage[xnn][ynn] = 0;
+            if (fill_flag && iteration) {
+                path = get_path(prev_x, prev_y, x, y);
+                for (pair<int, int> point : path) {
+                    new_x = point.first;
+                    new_y = point.second;
+
+                    for (pair<int, int> delta : deltas) {
+                        new_new_x = new_x + delta.first;
+                        new_new_y = new_y + delta.second;
+                        if (is_point_in_image(new_new_x, new_new_y, shape)) {
+                            binary_image[new_new_x][new_new_y] = 0;
+                        }
+                    }
+                }
+            } else {
+                for (pair<int, int> delta : deltas) {
+                    new_x = x + delta.first;
+                    new_y = y + delta.second;
+                    if (is_point_in_image(new_x, new_y, shape)) {
+                        binary_image[new_x][new_y] = 0;
                     }
                 }
             }
-            else
-            {
-                for (pair <int, int> dt : deltas)
-                {
-                    xn = x + dt.first; yn = y + dt.second;
-                    if (in_image(xn, yn, shp)) bimage[xn][yn] = 0;
-                }
-            }
-            xp = x;
-            yp = y;
-            it++;
+            prev_x = x;
+            prev_y = y;
+            iteration++;
         }
     }
 
-    bool check_poly(vc &cords, ld a, ld b)
-    {
+    // Проверяет, лежат ли точки на прямой
+    bool check_points_on_line(const PointVector &points, ld a, ld b) {
         ld s = 0;
-        for (pair <int, int> pnt : cords)
-            s = max(s, abs(a * pnt.first + b - pnt.second));
+        for (pair<int, int> point : points) {
+            s = max(s, abs(a * point.first + b - point.second));
+        }
         return s < 0.5;
     }
 
-    ld mean(vi &vec)
-    {
+    // Возвращает среднее значение вектора
+    ld mean_of_vector(const IntVector &vector) {
         ld s = 0;
-        for (int e : vec) s += e;
-        return s / vec.size();
+        for (int element : vector) {
+            s += element;
+        }
+        return s / vector.size();
     }
 
-    ld variance(vi &lst, ld mn)
-    {
+    // Возвращает дисперсию вектора
+    ld variance_of_vector(const IntVector &vector, ld mean) {
         ld s = 0;
-        for (int e : lst)
-            s += (e - mn) * (e - mn);
-        return s / lst.size();
+        for (int element : vector) {
+            s += (element - mean) * (element - mean);
+        }
+        return s / vector.size();
     }
 
-    ld variancexy(vi &x, vi &y, ld xm, ld ym)
-    {
+    // Возвращает ковариацию двух векторов
+    ld covariance_of_vectors(const IntVector &x, const IntVector &y, ld mean_x, ld mean_y) {
         ld s = 0;
-        for (int i = 0; i < x.size(); i++)
-            s += (x[i] - xm) * (y[i] - ym);
+        for (int i = 0; i < x.size(); i++) {
+            s += (x[i] - mean_x) * (y[i] - mean_y);
+        }
         return s / x.size();
     }
 
-    pair <bool, pair <ld, ld>> get_line(vc &pnts)
-    {
-        vi x, y;
-        for (pair <int, int> pnt : pnts)
-        {
-            x.push_back(pnt.first);
-            y.push_back(pnt.second);
+    // Возвращает параметры прямой, проходящей через точки
+    pair<bool, pair<ld, ld>> get_line_parameters(const PointVector &points) {
+        IntVector x, y;
+        for (pair<int, int> point : points) {
+            x.push_back(point.first);
+            y.push_back(point.second);
         }
 
-        ld xm = mean(x), ym = mean(y);
-        ld sx = variance(x, xm), sy = variance(y, ym);
-        ld sxy = variancexy(x, y, xm, ym);
+        ld mean_x = mean_of_vector(x);
+        ld mean_y = mean_of_vector(y);
+        ld variance_x = variance_of_vector(x, mean_x);
+        ld variance_y = variance_of_vector(y, mean_y);
+        ld covariance_xy = covariance_of_vectors(x, y, mean_x, mean_y);
 
-        if (sxy == 0) return {0, make_pair(0, 0)};
-        ld a = (sy - sx + sqrt((sy - sx) * (sy - sx) + 4 * sxy * sxy)) / (2 * sxy);
-        ld b = ym - a * xm;
-        return {1, make_pair(a, b)};
+        if (covariance_xy == 0) {
+            return {false, make_pair(0, 0)};
+        }
+        ld a = (variance_y - variance_x + sqrt((variance_y - variance_x) * (variance_y - variance_x) + 4 * covariance_xy * covariance_xy)) / (2 * covariance_xy);
+        ld b = mean_y - a * mean_x;
+        return {true, make_pair(a, b)};
     }
 
-    vc approximate(vc &cords)
-    {
-        int i = 2; 
-        vc ncords = {cords[0], cords[1]};
-        vc now;
-        ld an, bn;
-        while (i < cords.size())
-        {
-            if (cords[i].first == 1e9) 
-            {
-                if (now.size() > 1)
-                {
-                    ncords.push_back(now[0]);
-                    ncords.push_back(now.back());
+    // Аппроксимирует траекторию
+    PointVector approximate_trajectory(const PointVector &points) {
+        int i = 2;
+        PointVector new_points = {points[0], points[1]};
+        PointVector current_points;
+        ld a, b;
+        while (i < points.size()) {
+            if (points[i].first == 1e9) {
+                if (current_points.size() > 1) {
+                    new_points.push_back(current_points[0]);
+                    new_points.push_back(current_points.back());
                 }
-                ncords.push_back(cords[i]);
+                new_points.push_back(points[i]);
                 i++;
-                now.clear();
+                current_points.clear();
                 continue;
-            }
-            else if (cords[i].first == -1e9) 
-            {
-                if (!now.empty())
-                {
-                    for (pair <int, int> e: now) ncords.push_back(e);
-                } 
-                ncords.push_back(cords[i]);
-                now.clear();
-                i++;
-                continue;
-            }
-            
-            now.push_back(cords[i]);
-            if (now.size() < 2)
-            {
+            } else if (points[i].first == -1e9) {
+                if (!current_points.empty()) {
+                    for (pair<int, int> point : current_points) {
+                        new_points.push_back(point);
+                    }
+                }
+                new_points.push_back(points[i]);
+                current_points.clear();
                 i++;
                 continue;
             }
 
-            pair <bool, pair <ld, ld>> res = get_line(now);
-            if (res.first)
-            {
-                an = res.second.first;
-                bn = res.second.second;
-            }
-            else
-            {
+            current_points.push_back(points[i]);
+            if (current_points.size() < 2) {
                 i++;
                 continue;
             }
 
-            if (!check_poly(now, an, bn))
-            {
-                if (now.size() > 1)
-                {
-                    ncords.push_back(now[0]);
-                    ncords.push_back(now[now.size() - 2]);
+            pair<bool, pair<ld, ld>> result = get_line_parameters(current_points);
+            if (result.first) {
+                a = result.second.first;
+                b = result.second.second;
+            } else {
+                i++;
+                continue;
+            }
+
+            if (!check_points_on_line(current_points, a, b)) {
+                if (current_points.size() > 1) {
+                    new_points.push_back(current_points[0]);
+                    new_points.push_back(current_points[current_points.size() - 2]);
                 }
-                now = {cords[i]};
+                current_points = {points[i]};
             }
             i++;
         }
-        if (now.size() > 1)
-        {
-            ncords.push_back(now[0]);
-            ncords.push_back(now.back());
+        if (current_points.size() > 1) {
+            new_points.push_back(current_points[0]);
+            new_points.push_back(current_points.back());
         }
-        return ncords;
+        return new_points;
     }
 
-    void remove_dublicates(vc &x)
-    {
-        int i = 0; 
-        while (i < x.size() - 3)
-        {
-            if (x[i].first == 1e9 && x[i + 2].first == -1e9 && x[i + 3].first == 1e9)
-            {
-                x.erase(x.begin() + i);
-                x.erase(x.begin() + i);
-                x.erase(x.begin() + i);
-            }
-            else i++;
-        }
-    }
-
-    void pointer2vvvd(ld* pointer, size_t x, size_t y, size_t z, vvvd &ans)
-    {
-        for (int a = 0; a < x; a++)
-        {
-            for (int b = 0; b < y; b++)
-            {
-                for (int c = 0; c < z; c++) ans[a][b][c] = pointer[a * y + b * z + c];
+    // Удаляет дубликаты из траектории
+    void remove_duplicates(PointVector &points) {
+        int i = 0;
+        while (i < points.size() - 3) {
+            if (points[i].first == 1e9 && points[i + 2].first == -1e9 && points[i + 3].first == 1e9) {
+                points.erase(points.begin() + i);
+                points.erase(points.begin() + i);
+                points.erase(points.begin() + i);
+            } else {
+                i++;
             }
         }
     }
 
-    void vvvd2pointer(vvvd &vec, ld* pointer)
-    {
-        for (int a = 0; a < vec.size(); a++)
-        {
-            for (int b = 0; b < vec[0].size(); b++)
-            {
-                for (int c = 0; c < vec[0][0].size(); c++) pointer[a * vec.size() + b * vec[0].size() + c] = vec[a][b][c];
+    // Преобразует указатель на трехмерный массив в Matrix3D
+    void pointer_to_matrix3d(ld* pointer, size_t x, size_t y, size_t z, Matrix3D &result) {
+        for (int a = 0; a < x; a++) {
+            for (int b = 0; b < y; b++) {
+                for (int c = 0; c < z; c++) {
+                    result[a][b][c] = pointer[a * y + b * z + c];
+                }
             }
         }
     }
 
-    void pointer2vvd(ld* pointer, size_t n, size_t m, vvd &ans)
-    {
-        for (int x = 0; x < n; x++)
-        {
-            for (int y = 0; y < m; y++) ans[x][y] = pointer[x * m + y];
+    // Преобразует Matrix3D в указатель на трехмерный массив
+    void matrix3d_to_pointer(const Matrix3D &matrix, ld* pointer) {
+        for (int a = 0; a < matrix.size(); a++) {
+            for (int b = 0; b < matrix[0].size(); b++) {
+                for (int c = 0; c < matrix[0][0].size(); c++) {
+                    pointer[a * matrix.size() + b * matrix[0].size() + c] = matrix[a][b][c];
+                }
+            }
         }
     }
 
-    void vvd2pointer(vvd &vec, ld* ans)
-    {
-        for (int x = 0; x < vec.size(); x++)
-        {
-            for (int y = 0; y < vec[0].size(); y++) ans[x * vec[0].size() + y] = vec[x][y];
+    // Преобразует указатель на двумерный массив в Matrix2D
+    void pointer_to_matrix2d(ld* pointer, size_t n, size_t m, Matrix2D &result) {
+        for (int x = 0; x < n; x++) {
+            for (int y = 0; y < m; y++) {
+                result[x][y] = pointer[x * m + y];
+            }
         }
     }
 
-    void pointer2vvi(int *pointer, size_t n, size_t m, vvi &ans)
-    {
-        for (int x = 0; x < n; x++)
-        {
-            for (int y = 0; y < m; y++) ans[x][y] = pointer[x * m + y];
+    // Преобразует Matrix2D в указатель на двумерный массив
+    void matrix2d_to_pointer(const Matrix2D &matrix, ld* pointer) {
+        for (int x = 0; x < matrix.size(); x++) {
+            for (int y = 0; y < matrix[0].size(); y++) {
+                pointer[x * matrix[0].size() + y] = matrix[x][y];
+            }
         }
     }
 
-    void vvi2pointer(vvi &vec, int* pointer)
-    {
-        for (int x = 0; x < vec.size(); x++)
-        {
-            for (int y = 0; y < vec[0].size(); y++) pointer[x * vec[0].size() + y] = vec[x][y];
+    // Преобразует указатель на двумерный массив в IntMatrix2D
+    void pointer_to_int_matrix2d(int* pointer, size_t n, size_t m, IntMatrix2D &result) {
+        for (int x = 0; x < n; x++) {
+            for (int y = 0; y < m; y++) {
+                result[x][y] = pointer[x * m + y];
+            }
         }
     }
 
-    void pointer2vc(int *pointer, size_t n, vc &ans)
-    {
-        for (int i = 0; i < n; i++) 
-        {
-            ans[i].first = pointer[i * 2];
-            ans[i].second = pointer[i * 2 + 1]; 
+    // Преобразует IntMatrix2D в указатель на двумерный массив
+    void int_matrix2d_to_pointer(const IntMatrix2D &matrix, int* pointer) {
+        for (int x = 0; x < matrix.size(); x++) {
+            for (int y = 0; y < matrix[0].size(); y++) {
+                pointer[x * matrix[0].size() + y] = matrix[x][y];
+            }
         }
     }
 
-    int* vc2pointer(vc &vec)
-    {
-        int* ans = new int[vec.size() * 2 + 1];
-        ans[0] = vec.size();
-        for (int i = 0; i < vec.size(); i++)
-        {
-            ans[i * 2 + 1] = vec[i].first;
-            ans[i * 2 + 2] = vec[i].second;
+    // Преобразует PointVector в указатель на массив
+    int* point_vector_to_pointer(const PointVector &vector) {
+        int* result = new int[vector.size() * 2 + 1];
+        result[0] = vector.size();
+        for (int i = 0; i < vector.size(); i++) {
+            result[i * 2 + 1] = vector[i].first;
+            result[i * 2 + 2] = vector[i].second;
         }
-        return ans;
+        return result;
     }
 
-    int* pcompute_image(int* pointer, size_t n, size_t m, int d, int sx, int sy)
-    {
-        vvi image(n, vi(m));
-        pointer2vvi(pointer, n, m, image);
-        vc trajectory;
-        get_trajectory(image, d, sx, sy, trajectory);
-        trajectory = approximate(trajectory);
-        remove_dublicates(trajectory);
-        return vc2pointer(trajectory);
+    // Вычисляет траекторию на основе бинарного изображения
+    int* compute_image_trajectory(int* pointer, size_t n, size_t m, int distance, int start_x, int start_y) {
+        IntMatrix2D image(n, IntVector(m));
+        pointer_to_int_matrix2d(pointer, n, m, image);
+        PointVector trajectory;
+        generate_trajectory(image, distance, start_x, start_y, trajectory);
+        trajectory = approximate_trajectory(trajectory);
+        remove_duplicates(trajectory);
+        return point_vector_to_pointer(trajectory);
     }
 
-    void pmark(ld* imgp, ld* clrsp, size_t imgh, size_t imgw, size_t clrsh, size_t clrsw)
-    {
-        vvd img(imgh, vd(imgw)), clrs(clrsh, vd(clrsw));
-        pointer2vvd(imgp, imgh, imgw, img);
-        pointer2vvd(clrsp, clrsh, clrsw, clrs);
-        img = cmark(img, clrs);
-        vvd2pointer(img, imgp);
+    // Маркирует изображение на основе цветовых шаблонов
+    void mark_image_with_colors(ld* image_pointer, ld* colors_pointer, size_t image_height, size_t image_width, size_t colors_height, size_t colors_width) {
+        Matrix2D image(image_height, Vector(image_width));
+        Matrix2D colors(colors_height, Vector(colors_width));
+        pointer_to_matrix2d(image_pointer, image_height, image_width, image);
+        pointer_to_matrix2d(colors_pointer, colors_height, colors_width, colors);
+        image = mark_image(image, colors);
+        matrix2d_to_pointer(image, image_pointer);
     }
 
-    void pfill(int x, int y, int* visp, ld* imgp, size_t imgh, size_t imgw, size_t chnls)
-    {
-        vvi vis(imgh, vi(imgw));
-        vvvd img(imgh, vvd(imgw, vd(chnls)));
-        pointer2vvvd(imgp, imgh, imgw, chnls, img);
-        pointer2vvi(visp, imgh, imgw, vis);
-        cfill(x, y, vis, img);
-        vvvd2pointer(img, imgp);
-        vvi2pointer(vis, visp);
+    // Заполняет область на изображении
+    void fill_image_area(int x, int y, int* visited_pointer, ld* image_pointer, size_t image_height, size_t image_width, size_t channels) {
+        IntMatrix2D visited(image_height, IntVector(image_width));
+        Matrix3D image(image_height, Matrix2D(image_width, Vector(channels)));
+        pointer_to_matrix3d(image_pointer, image_height, image_width, channels, image);
+        pointer_to_int_matrix2d(visited_pointer, image_height, image_width, visited);
+        fill_area(x, y, visited, image);
+        matrix3d_to_pointer(image, image_pointer);
+        int_matrix2d_to_pointer(visited, visited_pointer);
     }
 
-    void cleanup(int* pntr)
-    {
-        delete[] pntr;
+    // Освобождает память, выделенную под указатель
+    void cleanup(int* pointer) {
+        delete[] pointer;
     }
 }

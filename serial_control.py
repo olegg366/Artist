@@ -1,61 +1,82 @@
 import serial
 from time import sleep
 import mediapipe as mp
-import numpy  as np
+import numpy as np
 import os
 import cv2
 
+# Устанавливаем права доступа к порту
 os.system('echo Dragon2009 | sudo -S chmod 666 /dev/ttyACM0')
 
+# Настройки порта и скорости передачи данных
 port = "/dev/ttyACM0"  
 baudrate = 115200 
 
+# Скорость перемещения
 speed = 8000
 
+# Настройки для MediaPipe
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
 HandLandmarkerOptions = mp.tasks.vision.HandLandmarkerOptions
 VisionRunningMode = mp.tasks.vision.RunningMode
 
 options = HandLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path='mlmodels/hand_landmarker.task', delegate=BaseOptions.Delegate.CPU),
-        running_mode=VisionRunningMode.VIDEO)
+    base_options=BaseOptions(model_asset_path='mlmodels/hand_landmarker.task', delegate=BaseOptions.Delegate.CPU),
+    running_mode=VisionRunningMode.VIDEO)
 
-def servo(ser: serial.Serial, n):
+def control_servo(ser: serial.Serial, command: str):
+    """
+    Управляет сервомотором на основе команды.
+    
+    :param ser: Объект Serial для связи с устройством.
+    :param command: Команда ('up', 'maxup', 'down').
+    """
     angle = 0
-    if n == 'up': angle = 90
-    elif n == 'maxup': angle = 0
-    elif n == 'down': angle = 135
+    if command == 'up': angle = 90
+    elif command == 'maxup': angle = 0
+    elif command == 'down': angle = 135
     ser.write(f'M280 P0 S{angle}\n'.encode())
     ser.read_until(b'ok\n')
         
-def get_gcode(t: list):
+def generate_gcode(trajectory: list):
+    """
+    Генерирует G-код на основе траектории движения.
+    
+    :param trajectory: Список координат траектории.
+    :return: Список команд G-кода.
+    """
     i = 2
-    ans = [f'G1 X{(t[0][0])} Y{(t[0][1])} F{speed * 2}\n', 'down']
-    while i < len(t):
-        while i < len(t) and t[i][0] != 1e9:
-            if abs(t[i][0]) != 1e9:
-                ans += [f'G1 X{(t[i][0])} Y{(t[i][1])} F{speed}\n']
+    gcode_commands = [f'G1 X{(trajectory[0][0])} Y{(trajectory[0][1])} F{speed * 2}\n', 'down']
+    while i < len(trajectory):
+        while i < len(trajectory) and trajectory[i][0] != 1e9:
+            if abs(trajectory[i][0]) != 1e9:
+                gcode_commands += [f'G1 X{(trajectory[i][0])} Y{(trajectory[i][1])} F{speed}\n']
             i += 1
-        ans += ['up']
-        if i < len(t) - 1 and abs(t[i + 1][0]) != 1e9:
-            ans += [f'G1 X{(t[i + 1][0])} Y{(t[i + 1][1])} F{speed * 2}\n']
-        ans += ['down']
+        gcode_commands += ['up']
+        if i < len(trajectory) - 1 and abs(trajectory[i + 1][0]) != 1e9:
+            gcode_commands += [f'G1 X{(trajectory[i + 1][0])} Y{(trajectory[i + 1][1])} F{speed * 2}\n']
+        gcode_commands += ['down']
         i += 3
-    return ans
+    return gcode_commands
 
-def send_gcode(gcodes: list):
+def send_gcode(gcode_commands: list):
+    """
+    Отправляет G-код на устройство через последовательный порт.
+    
+    :param gcode_commands: Список команд G-кода.
+    """
     vid = cv2.VideoCapture(0)
     ser = serial.Serial(port, baudrate=baudrate)
     sleep(2)
     ser.write(b'G90\n')
-    prevx, prevy = 0, 0
+    prev_x, prev_y = 0, 0
     timestamp = 0
     i = 0
     try:
         flag_stop = False
         with HandLandmarker.create_from_options(options) as landmarker:
-            while i < len(gcodes):
+            while i < len(gcode_commands):
                 timestamp += 1
                 res, img = vid.read()
                 if not res:
@@ -68,30 +89,39 @@ def send_gcode(gcodes: list):
                         print('Stopped painting')
                     continue
                 else: flag_stop = False
-                gcode = gcodes[i]
+                gcode = gcode_commands[i]
                 i += 1
                 print(gcode)
                 if (gcode[0] != 'G'):
-                    servo(ser, gcode)
+                    control_servo(ser, gcode)
                     sleep(0.1)
                     continue
-                if gcode == f"G1 X{prevx} Y{prevy} F{speed}": 
+                if gcode == f"G1 X{prev_x} Y{prev_y} F{speed}": 
                     continue
                 ser.write(gcode.encode())
                 ser.read_until(b'ok\n')
                 gcode = [float(gcode[gcode.index('X') + 1:gcode.index('Y') - 1]), float(gcode[gcode.index('Y') + 1:gcode.index('F') - 1])]
-                d = dist(prevx, prevy, gcode[0], gcode[1]) / (speed / 60)
+                d = calculate_distance(prev_x, prev_y, gcode[0], gcode[1]) / (speed / 60)
                 sleep(d + 0.1)
-                prevx, prevy = gcode
+                prev_x, prev_y = gcode
     except KeyboardInterrupt:
         pass
     except Exception as e:
         print(e)
-    servo(ser, 'maxup')
+    control_servo(ser, 'maxup')
     ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()
 
-def dist(ax, ay, bx, by):
+def calculate_distance(ax, ay, bx, by):
+    """
+    Вычисляет расстояние между двумя точками.
+    
+    :param ax: Координата X первой точки.
+    :param ay: Координата Y первой точки.
+    :param bx: Координата X второй точки.
+    :param by: Координата Y второй точки.
+    :return: Расстояние между точками.
+    """
     return ((ax - bx) ** 2 + (ay - by) ** 2) ** 0.5
 
 if __name__ == '__main__':
@@ -101,16 +131,16 @@ if __name__ == '__main__':
     print(ser.read_until(b'ok\n').decode())
     try:
         while True:
-            n = input('Enter your command: ')
-            if n[0] == 'X' or n[0] == 'Y':
-                ser.write(('G1 ' + n + '\n').encode())
-            elif n in ['up', 'down', 'maxup']:
-                servo(ser, n)
+            command = input('Enter your command: ')
+            if command[0] == 'X' or command[0] == 'Y':
+                ser.write(('G1 ' + command + '\n').encode())
+            elif command in ['up', 'down', 'maxup']:
+                control_servo(ser, command)
             else:
-                ser.write((n + '\n').encode())
+                ser.write((command + '\n').encode())
             print(ser.read_until(b'ok\n').decode())
                                                                 
     except KeyboardInterrupt:
-        servo(ser, 'maxup')
+        control_servo(ser, 'maxup')
         ser.write('G1 X0 Y0 F16000\n'.encode())
     ser.close()

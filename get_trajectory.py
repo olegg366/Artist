@@ -1,26 +1,32 @@
 import os
 
+# Открываем исходный файл и файл предыдущей версии
 src = open('trajectory.cpp', 'r')
 dst = open('lib/trajectory.prev', 'r')
 s, d = src.read(), dst.read()
+
 try:
+    # Сравниваем содержимое файлов
     if s != d:
         print('compiling...')
         dst.close()
         
+        # Компилируем исходный файл в объектный файл и библиотеку
         err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc86 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
         err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc86 -stdpar lib/trajectory.o -o lib/trajectory.so')
         
+        # Если произошла ошибка компиляции, завершаем программу с кодом ошибки
         if err1: exit(err1)
         if err2: exit(err2)
         
+        # Сохраняем текущую версию файла как предыдущую
         dst = open('lib/trajectory.prev', 'w')
         dst.write(s)
         print('compiled')
 finally:
+    # Закрываем файлы
     dst.close()
     src.close()
-
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,7 +43,7 @@ from skimage.morphology import binary_dilation, square
 
 import ctypes as c
 
-from serial_control import get_gcode, send_gcode
+from serial_control import generate_gcode, send_gcode
 
 import cv2
 from math import sin, cos, acos, sqrt, pi
@@ -45,8 +51,10 @@ from detect_paper import detect_paper
 
 from serial import Serial
 
+# Загружаем скомпилированную библиотеку
 lib = c.CDLL('/home/olegg/Artist/lib/trajectory.so')
 
+# Определяем типы указателей для функций библиотеки
 DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
                                    ndim=2,
                                    flags='C')
@@ -59,25 +67,60 @@ IPOINTER2D = np.ctypeslib.ndpointer(dtype=np.int32,
                                    ndim=2,
                                    flags='C')
 
-lib.pmark.argtypes = [DPOINTER2D, DPOINTER2D, c.c_size_t, c.c_size_t, c.c_size_t, c.c_size_t]
-lib.pmark.restype = None
+# Устанавливаем типы аргументов и возвращаемые значения для функций библиотеки
+lib.mark_image_with_colors.argtypes = [DPOINTER2D, DPOINTER2D, c.c_size_t, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.mark_image_with_colors.restype = None
 
-lib.pfill.argtypes = [c.c_int32, c.c_int32, IPOINTER2D, DPOINTER3D, c.c_size_t, c.c_size_t, c.c_size_t]
-lib.pfill.restype = None
+lib.fill_image_area.argtypes = [c.c_int32, c.c_int32, IPOINTER2D, DPOINTER3D, c.c_size_t, c.c_size_t, c.c_size_t]
+lib.fill_image_area.restype = None
 
-lib.pcompute_image.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.c_int32, c.c_int32]
-lib.pcompute_image.restype = c.POINTER(c.c_int32)
+lib.compute_image_trajectory.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.c_int32, c.c_int32]
+lib.compute_image_trajectory.restype = c.POINTER(c.c_int32)
 
 def mark(img, clrs):
-    lib.pmark(img.astype('float128', order='C'), clrs.astype('float64', order='C'), *img.shape, *clrs.shape)
+    """
+    Отмечает цвета на изображении.
+    
+    Параметры:
+    img (np.ndarray): Изображение.
+    clrs (np.ndarray): Цвета.
+    
+    Возвращает:
+    np.ndarray: Изображение с отмеченными цветами.
+    """
+    lib.mark_image_with_colors(img.astype('float128', order='C'), clrs.astype('float64', order='C'), *img.shape, *clrs.shape)
     return img
 
 def fill(x, y, vis, img):
-    lib.pfill(x, y, vis.astype('int32', order='C'), img.astype('float64', order='C'), *img.shape)
+    """
+    Заполняет изображение цветами.
+    
+    Параметры:
+    x (int): Координата x.
+    y (int): Координата y.
+    vis (np.ndarray): Визуализация.
+    img (np.ndarray): Изображение.
+    
+    Возвращает:
+    tuple: Визуализация и изображение.
+    """
+    lib.fill_image_area(x, y, vis.astype('int32', order='C'), img.astype('float64', order='C'), *img.shape)
     return vis, img
 
 def compute_image(img, d, sx, sy):
-    res = lib.pcompute_image(img.astype('int32', order='C'), *img.shape, d, sx, sy)
+    """
+    Вычисляет изображение.
+    
+    Параметры:
+    img (np.ndarray): Изображение.
+    d (int): Параметр d.
+    sx (int): Координата x начала.
+    sy (int): Координата y начала.
+    
+    Возвращает:
+    list: Список координат.
+    """
+    res = lib.compute_image_trajectory(img.astype('int32', order='C'), *img.shape, d, sx, sy)
     ans = []
     sz = res[0]
     for i in range(sz):
@@ -88,6 +131,16 @@ def compute_image(img, d, sx, sy):
     return ans
 
 def get_colors(img, crop):
+    """
+    Получает цвета из изображения.
+    
+    Параметры:
+    img (np.ndarray): Изображение.
+    crop (bool): Обрезать изображение.
+    
+    Возвращает:
+    np.ndarray: Изображение с цветами.
+    """
     if np.max(img) <= 1:
         img *= 255
     t = canny(cv2.cvtColor(img.astype('uint8'), cv2.COLOR_RGB2GRAY))
@@ -99,6 +152,18 @@ def get_colors(img, crop):
     return t
 
 def shift_coords(sx: float, sy: float, angle: float, matrix: np.ndarray):
+    """
+    Сдвигает координаты.
+    
+    Параметры:
+    sx (float): Координата x начала.
+    sy (float): Координата y начала.
+    angle (float): Угол поворота.
+    matrix (np.ndarray): Матрица координат.
+    
+    Возвращает:
+    np.ndarray: Сдвинутая матрица координат.
+    """
     rm = np.array([[cos(angle), sin(angle)],
                    [-sin(angle), cos(angle)]])
     rotated = np.matmul(matrix, rm)
@@ -106,12 +171,44 @@ def shift_coords(sx: float, sy: float, angle: float, matrix: np.ndarray):
     return shifted
 
 def get_angle(x1, y1, x2, y2):
+    """
+    Вычисляет угол между двумя векторами.
+    
+    Параметры:
+    x1 (float): Координата x первого вектора.
+    y1 (float): Координата y первого вектора.
+    x2 (float): Координата x второго вектора.
+    y2 (float): Координата y второго вектора.
+    
+    Возвращает:
+    float: Угол между векторами.
+    """
     return acos((x1 * x2 + y1 * y2) / (sqrt(x1 * x1 + y1 * y1) * sqrt(x2 * x2 + y2 * y2))) 
 
 def dist(x1, y1, x2, y2):
+    """
+    Вычисляет расстояние между двумя точками.
+    
+    Параметры:
+    x1 (float): Координата x первой точки.
+    y1 (float): Координата y первой точки.
+    x2 (float): Координата x второй точки.
+    y2 (float): Координата y второй точки.
+    
+    Возвращает:
+    float: Расстояние между точками.
+    """
     return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
         
 def draw_img(img, crop=False, show=False):
+    """
+    Рисует изображение.
+    
+    Параметры:
+    img (np.ndarray): Изображение.
+    crop (bool): Обрезать изображение.
+    show (bool): Показать изображение.
+    """
     if not isinstance(img, np.ndarray):
         img = np.array(img)
     img = img[::-1]
@@ -144,7 +241,7 @@ def draw_img(img, crop=False, show=False):
     serial = Serial('/dev/ttyACM0', 115200)
     sleep(2)
     serial.write(b'G90\n')
-    serial.write(b'G1 X450 F16000\n')
+    serial.write(b'G1 X350 F16000\n')
     serial.read_until(b'ok\n')
     sleep(2)
     try:
@@ -170,7 +267,7 @@ def draw_img(img, crop=False, show=False):
     vid.release()
     serial.write(b'G1 X0 F16000\n')
     serial.read_until(b'ok\n')
-    sleep(1)
+    sleep(2)
     serial.close()
     w, h = sorted([dist(*points[0], *points[1]), dist(*points[1], *points[2])])
     for i in range(1, len(points)):
@@ -209,11 +306,11 @@ def draw_img(img, crop=False, show=False):
         plt.show()
     
     print('sending gcode...')
-    gcode = get_gcode(trajectory)
+    gcode = generate_gcode(trajectory)
     send_gcode(gcode)
     print('sent gcode')
     
 if __name__ == '__main__':
     img = imread('images/gen.png')
     img = rotate(resize(img, (512, img.shape[1] * (512 / img.shape[0]))), 0)
-    draw_img(img, True)
+    draw_img(img, show=True, crop=True)

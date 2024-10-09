@@ -1,5 +1,5 @@
 import mediapipe as mp
-from utilites import draw_landmarks_on_image
+from utilities import draw_landmarks_on_image
 import numpy as np
 import cv2
 import tensorflow as tf

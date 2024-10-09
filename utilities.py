@@ -77,6 +77,7 @@ def draw_landmarks_on_image(rgb_image, detection_result):
   return annotated_image
 
 def draw(tps: list, time, cnt, flag, cords, endflag, app: App):
+    print(tps, flag)
     if 'Click' in tps and flag:
         cnt['clean'] = 0
         cnt['end'] = 0
