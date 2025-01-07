@@ -52,7 +52,7 @@ from detect_paper import detect_paper
 from serial import Serial
 
 # Загружаем скомпилированную библиотеку
-lib = c.CDLL('/home/olegg/Artist/lib/trajectory.so')
+lib = c.CDLL('lib/trajectory.so')
 
 # Определяем типы указателей для функций библиотеки
 DPOINTER2D = np.ctypeslib.ndpointer(dtype=np.float128,
@@ -199,25 +199,8 @@ def dist(x1, y1, x2, y2):
     float: Расстояние между точками.
     """
     return sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
-        
-def draw_img(img, crop=False, show=False):
-    """
-    Рисует изображение.
-    
-    Параметры:
-    img (np.ndarray): Изображение.
-    crop (bool): Обрезать изображение.
-    show (bool): Показать изображение.
-    """
-    if not isinstance(img, np.ndarray):
-        img = np.array(img)
-    img = img[::-1]
-    #img = rotate(img, 90, mode='edge')[::-1]
-    print('getting colors..')
-    img = get_colors(img, crop)
-    print('got colors')
-    
-    print('getting trajectory...')
+
+def get_trajectory(img):
     idx = 0
     trajectory = []
     lb = label(img)
@@ -229,9 +212,9 @@ def draw_img(img, crop=False, show=False):
         trajectory.extend(cords)
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
-    print('got trajectory')
-    # print(trajectory)
-    trajectory = np.array(trajectory)
+    return trajectory
+
+def compute_angle(show):
     points = []
     vid = cv2.VideoCapture(0)
     vid.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -280,6 +263,31 @@ def draw_img(img, crop=False, show=False):
     sx, sy = points[0]
     mx, my = points[1]
     angle = get_angle(0, 1, mx - sx, my - sy)
+    return angle, w, sx, sy, frame
+        
+def draw_img(img, crop=False, show=False):
+    """
+    Рисует изображение.
+    
+    Параметры:
+    img (np.ndarray): Изображение.
+    crop (bool): Обрезать изображение.
+    show (bool): Показать изображение.
+    """
+    if not isinstance(img, np.ndarray):
+        img = np.array(img)
+    img = img[::-1]
+    #img = rotate(img, 90, mode='edge')[::-1]
+    print('getting colors..')
+    img = get_colors(img, crop)
+    print('got colors')
+    
+    print('getting trajectory...')
+    trajectory = get_trajectory(img)
+    print('got trajectory')
+    # print(trajectory)
+    trajectory = np.array(trajectory)
+    angle, w, sx, sy, frame = compute_angle(show)
     index = np.any(np.abs(trajectory) != [1e9, 1e9], axis=1)
     
     k = w / max(img.shape)
