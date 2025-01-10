@@ -35,33 +35,39 @@ def scale_contour(cnt, scale):
 
 # Основная функция для обнаружения бумаги и зеленых квадратов
 def detect_paper(frame, warp=False):
+    frame = frame[:, 200:950]
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Определяем диапазоны цветов для черной и зеленой маски
     lower_black = (0, 0, 0)
     upper_black = (180, 255, 100)
-    lower_green = np.array([30, 10, 50])
-    upper_green = np.array([90, 255, 255])
+    lower_green = np.array([25, 20, 50])
+    upper_green = np.array([80, 200, 200])
 
     # Создаем маски для зеленого и черного цветов
     mask1 = cv2.inRange(hsv, lower_green, upper_green)
     mask2 = cv2.inRange(hsv, lower_black, upper_black)
     mask = mask1 & (~mask2)
+    
 
     # Находим контуры на маске
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    
     points = np.array([])
 
     # Обрабатываем каждый контур
     for idx, contour in enumerate(contours):
-        if cv2.contourArea(contour) > 500:
+        if cv2.contourArea(contour) > 800 and cv2.contourArea(contour) <= 5000:
+            
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
+            # cv2.drawContours(frame, [approx], -1, (0, 0, 255), 5)
             if not points.size:
                 points = approx[:, 0]
             else:
                 points = np.append(points, approx[:, 0], axis=0)
-
+    # cv2.imshow('Detected Green Squares bbox', frame)
     # Если найдено достаточно точек, обрабатываем их
     if len(points) >= 16:
         bp = cv2.boxPoints(cv2.minAreaRect(points))
