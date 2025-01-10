@@ -264,6 +264,22 @@ def compute_angle(show):
     mx, my = points[1]
     angle = get_angle(0, 1, mx - sx, my - sy)
     return angle, w, sx, sy, frame
+
+def draw_trajectory(trajectory, image):
+    ax = plt.subplot()
+    ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    i = 0
+    end = 0
+    while i < len(trajectory):
+        while i < len(trajectory) and trajectory[i, 0] != -1e9:
+            i += 1
+        i += 1
+        end = i
+        while i < len(trajectory) and trajectory[i, 0] != 1e9:
+            i += 1
+        ax.add_line(Line2D(trajectory[end:i, 0], trajectory[end:i, 1], lw=1, color='blue'))
+    plt.get_current_fig_manager().full_screen_toggle()
+    plt.show()
         
 def draw_img(img, crop=False, show=False):
     """
@@ -298,20 +314,7 @@ def draw_img(img, crop=False, show=False):
     # print(trajectory.tolist())
     trajectory = trajectory[:, [1, 0]]
     if show:
-        ax = plt.subplot()
-        ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        i = 0
-        end = 0
-        while i < len(trajectory):
-            while i < len(trajectory) and trajectory[i, 0] != -1e9:
-                i += 1
-            i += 1
-            end = i
-            while i < len(trajectory) and trajectory[i, 0] != 1e9:
-                i += 1
-            ax.add_line(Line2D(trajectory[end:i, 0], trajectory[end:i, 1], lw=1, color='blue'))
-        plt.get_current_fig_manager().full_screen_toggle()
-        plt.show()
+        draw_trajectory(trajectory, frame)
     
     print('sending gcode...')
     gcode = generate_gcode(trajectory)
@@ -321,4 +324,7 @@ def draw_img(img, crop=False, show=False):
 if __name__ == '__main__':
     img = imread('images/gen.png')
     img = rotate(resize(img, (512, img.shape[1] * (512 / img.shape[0]))), 0)
-    draw_img(img, show=True, crop=True)
+    colors = get_colors(img, True)
+    traj = get_trajectory(colors)
+    draw_trajectory(traj, colors)
+    # draw_img(img, show=True, crop=True)
