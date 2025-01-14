@@ -2,6 +2,7 @@ import serial
 from time import sleep
 import mediapipe as mp
 import numpy as np
+from math import cos, acos, pi
 import os
 import cv2
 
@@ -15,6 +16,8 @@ baudrate = 115200
 # Скорость перемещения
 speed = 8000
 
+down = 135
+
 # Настройки для MediaPipe
 BaseOptions = mp.tasks.BaseOptions
 HandLandmarker = mp.tasks.vision.HandLandmarker
@@ -24,6 +27,28 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path='mlmodels/hand_landmarker.task', delegate=BaseOptions.Delegate.CPU),
     running_mode=VisionRunningMode.VIDEO)
+
+def get_desired_angle(angle):
+    angle = angle / 180 * pi
+    desired = acos((cos(angle) * 15 - 18) / 15)
+    return desired / pi * 180
+
+def calibrate(ser: serial.Serial):
+    global down
+    angle = 0
+    while True:
+        ser.write(f'M280 P0 S{angle}\n'.encode())
+        ser.read_until(b'ok\n')
+        angle += 5
+        ser.write(b'M119\n')
+        status = ser.read_until(b'ok\n').decode()
+        state = status[status.rfind('x_min: ') + 7:status.find('\n', status.rfind('x_min: '))]
+        if state == 'TRIGGERED' or angle == 180:
+            break
+    desired = get_desired_angle(angle)
+    down = desired
+    ser.write(b'M280 P0 S0\n')
+    
 
 def control_servo(ser: serial.Serial, command: str):
     """
@@ -35,7 +60,7 @@ def control_servo(ser: serial.Serial, command: str):
     angle = 0
     if command == 'up': angle = 90
     elif command == 'maxup': angle = 0
-    elif command == 'down': angle = 135
+    elif command == 'down': angle = down
     ser.write(f'M280 P0 S{angle}\n'.encode())
     ser.read_until(b'ok\n')
         
@@ -70,6 +95,7 @@ def send_gcode(gcode_commands: list):
     ser = serial.Serial(port, baudrate=baudrate)
     sleep(2)
     ser.write(b'G90\n')
+    calibrate(ser)
     prev_x, prev_y = 0, 0
     timestamp = 0
     i = 0
@@ -129,6 +155,7 @@ if __name__ == '__main__':
     sleep(2)
     ser.write(b'G90\n')
     print(ser.read_until(b'ok\n').decode())
+    calibrate(ser)
     try:
         while True:
             command = input('Enter your command: ')

@@ -16,6 +16,7 @@ while True:
     print(state)
     if state == 'TRIGGERED' or angle == 180:
         break
+print(angle)
 sleep(5)
 ser.write(b'M280 P0 S0\n')
 ser.close()
