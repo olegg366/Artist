@@ -172,8 +172,8 @@ class App():
         self.fr_ctrl.place(relx=0, rely=0, relwidth=0.2, relheight=1)   
         self.root.update()  
         
-        imgw *= self.root.winfo_width() / 1440
-        imgw *= self.root.winfo_height() / 899
+        imgw = int(imgw * self.root.winfo_width() / 1440)
+        imgh = int(imgh * self.root.winfo_height() / 899)
         
         self.fr_ctrl.columnconfigure(0, weight=0)
 
@@ -202,12 +202,12 @@ class App():
             bg='red',
             font="Jost",
             fontsize=15,
-            height=200
+            height=200 * self.root.winfo_width() / 1440
         )
         self.status_drawing.pack(side='top', fill='both', pady=self.pad)
         self.now_clr = 'red'
         
-        self.bth = (self.root.winfo_height() - 11 * 10 - 180 - 200) / 3
+        self.bth = (self.root.winfo_height() - 11 * 10 - imgh - 200 * self.root.winfo_width() / 1440) / 3
         self.btw = 20
         
         self.fr_status = tk.Frame(self.fr_ctrl, highlightthickness=0, bg='lightgrey')
@@ -378,7 +378,7 @@ class App():
         self.progressbar.step(amount)
                 
     def check_recognition(self):
-        self.status_drawing.resize((self.fr_status.winfo_width(), 100))
+        self.status_drawing.resize((self.fr_status.winfo_width(), 200 * self.root.winfo_width() / 1440 / 2))
         self.bt_yes.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=100)
         self.bt_no.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=100)
         self.bt_yes.pack(side='left')
