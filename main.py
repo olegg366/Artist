@@ -14,7 +14,7 @@ from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler
 
 from PIL import Image
 from skimage.transform import resize
-from skimage.filters import threshold_otsu
+from skimage.util import invert
 
 from utilities import draw_landmarks_on_image, draw, get_landmarks, dist
 from interface import App
@@ -77,9 +77,7 @@ def generate_image(image, prompt):
     :return: Сгенерированное изображение.
     """
     image_array = np.array(image)
-    channel = image_array[:, :, 0]
-    threshold = threshold_otsu(channel)
-    image = Image.fromarray((image_array <= threshold).astype('uint8') * 255)
+    image = Image.fromarray(invert(image_array))
     
     print('Настройка Stable Diffusion...')
     controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 

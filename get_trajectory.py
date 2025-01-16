@@ -12,8 +12,8 @@ try:
         dst.close()
         
         # Компилируем исходный файл в объектный файл и библиотеку
-        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda11.8,cc86 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
-        err2 = os.system('nvc++ -shared -gpu=managed,cuda11.8,cc86 -stdpar lib/trajectory.o -o lib/trajectory.so')
+        err1 = os.system('nvc++ -fPIC -stdpar -Iinclude-stdpar -gpu=managed,cuda12.5,cc86 -std=c++17 -c trajectory.cpp -o lib/trajectory.o')
+        err2 = os.system('nvc++ -shared -gpu=managed,cuda12.5,cc86 -stdpar lib/trajectory.o -o lib/trajectory.so')
         
         # Если произошла ошибка компиляции, завершаем программу с кодом ошибки
         if err1: exit(err1)
@@ -143,7 +143,7 @@ def get_colors(img, crop):
     """
     if np.max(img) <= 1:
         img *= 255
-    t = canny(cv2.cvtColor(img.astype('uint8'), cv2.COLOR_RGB2GRAY))
+    t = canny(cv2.cvtColor(img.astype('uint8'), cv2.COLOR_RGB2GRAY), sigma=2.0)
         
     t = binary_dilation(t, square(5))
     if crop:
@@ -212,7 +212,7 @@ def get_trajectory(img):
         trajectory.extend(cords)
         if trajectory[-1][0] != 1e9:
             trajectory.append([1e9, 1e9])
-    return trajectory
+    return np.array(trajectory)
 
 def compute_angle(show):
     points = []
@@ -267,7 +267,7 @@ def compute_angle(show):
 
 def draw_trajectory(trajectory, image):
     ax = plt.subplot()
-    ax.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    ax.imshow(image.astype('uint8'))
     i = 0
     end = 0
     while i < len(trajectory):
@@ -277,7 +277,7 @@ def draw_trajectory(trajectory, image):
         end = i
         while i < len(trajectory) and trajectory[i, 0] != 1e9:
             i += 1
-        ax.add_line(Line2D(trajectory[end:i, 0], trajectory[end:i, 1], lw=1, color='blue'))
+        ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
     plt.get_current_fig_manager().full_screen_toggle()
     plt.show()
         
@@ -324,7 +324,9 @@ def draw_img(img, crop=False, show=False):
 if __name__ == '__main__':
     img = imread('images/gen.png')
     img = rotate(resize(img, (512, img.shape[1] * (512 / img.shape[0]))), 0)
-    colors = get_colors(img, True)
+    colors = get_colors(img, False)
+    plt.imshow(colors)
+    plt.show()
     traj = get_trajectory(colors)
-    draw_trajectory(traj, colors)
+    draw_trajectory(traj, img)
     # draw_img(img, show=True, crop=True)

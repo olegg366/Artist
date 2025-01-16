@@ -1,9 +1,11 @@
 import torch
 import tomesd
 from DeepCache import DeepCacheSDHelper
-from PIL import Image
 from diffusers import StableDiffusionControlNetPipeline, UniPCMultistepScheduler, ControlNetModel
 import matplotlib.pyplot as plt
+from imageio.v3 import imwrite, imread
+from skimage.util import invert
+import numpy as np
 
 def callback_dynamic_cfg(_, step_index, timestep, callback_kwargs):
     return callback_kwargs
@@ -31,13 +33,14 @@ pipe.enable_xformers_memory_efficient_attention()
 pipe.unet.to(memory_format=torch.channels_last)
 pipe.vae.to(memory_format=torch.channels_last)
 
-prompt = "house, single color, child's drawing"
-negative_prompt = "many lines"
-img = Image.open('images/scribble.png')
+prompt = "ship, high contrast grayscale drawing, only contours, wide lines, white background"
+negative_prompt = "many lines, bad anatomy, worst quality, bad quality"
+img = imread('images/scribble.png')
+img = invert(img)[..., :3]
+img[img != 255] = 0
+img[img == 255] = 1
 
 with torch.inference_mode():
-    images = pipe(prompt, img, num_inference_steps=50, height=512, width=512, negative_prompt=negative_prompt, num_images_per_prompt=3, output_type='np').images
-
-    for img in images:
-        plt.imshow(img)
-        plt.show()
+    images = pipe(prompt, [img], num_inference_steps=50, height=512, width=512, negative_prompt=negative_prompt, output_type='np').images[0] * 255
+    
+    imwrite('images/gen.png', images.astype('uint8'))
