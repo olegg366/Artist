@@ -9,8 +9,8 @@ import cv2
 import numpy as np
 from multiprocessing import Queue, Value
 
-imgh = 300
-imgw = 400
+imgh = 180
+imgw = 320
 
 class RoundedFrame(tk.Canvas):
     def __init__(self, 
@@ -76,12 +76,15 @@ class RoundedFrame(tk.Canvas):
             self.coords(self.rect, points)
 
     def resize(self, event):
-        if self.radius > event.width or self.radius > event.height:
-            radius = min((event.width, event.height))
+        if isinstance(event, tk.Event):
+            width, height = event.width, event.height
+        else:
+            width, height = event
+        if self.radius > width or self.radius > height:
+            radius = min(width, height)
         else:
             radius = self.radius
-
-        width, height = event.width, event.height
+        self.configure(width=width, height=height)
         self.round_rectangle(5, 5, width-5, height-5, radius, outline=self.outline, update=True)
 
         bbox = self.bbox(self.rect)
@@ -174,12 +177,10 @@ class App():
         # self.canvas.bind('<Button-1>', self.set_start)
         # self.canvas.bind('<B1-Motion>', self.draw_line)
         # self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
-
+        print(self.root.winfo_height())
         self.btfont = 'Jost'
-        self.fontsize = int(30 * self.root.winfo_width() / 2880)
+        self.fontsize = int(35 * self.root.winfo_width() / 1440)
         self.fontprops = 'bold'
-        self.bth = int(300 * self.root.winfo_height() / 1864)
-        self.btw = 20
         self.pad = 10
         self.btclr = '#6d2222'
         self.btpress = '#e77774'
@@ -189,17 +190,23 @@ class App():
 
         self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((imgh, imgw))))
         self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image, bg="lightgrey")
-        self.points_image_panel.pack(side='top', fill='both', pady=self.pad)
+        self.points_image_panel.pack(side='top', fill='both', pady=self.pad, padx=5)
         
         self.camera_image = None
         
         self.status_drawing = RoundedFrame(
             master=self.fr_ctrl,
             background='red', 
-            bg='red'
+            bg='red',
+            font="Jost",
+            fontsize=15,
+            height=200
         )
         self.status_drawing.pack(side='top', fill='both', pady=self.pad)
         self.now_clr = 'red'
+        
+        self.bth = (self.root.winfo_height() - 11 * 10 - 180 - 200) / 3
+        self.btw = 20
         
         self.fr_status = tk.Frame(self.fr_ctrl, highlightthickness=0, bg='lightgrey')
         self.fr_status.pack(side='top', fill='both', pady=self.pad)
@@ -293,7 +300,8 @@ class App():
             self.fr_status, 
             text="Да", 
             callback=self.change_flags_correct,
-            font="Jost 30",
+            font="Jost",
+            fontsize=int(25 * self.root.winfo_width() / 1440),
             background=self.btclr,
             foreground='white'
         )
@@ -301,7 +309,8 @@ class App():
         self.bt_no = RoundedButton(
             self.fr_status, 
             text="Нет", 
-            font="Jost 30",
+            font="Jost",
+            fontsize=int(25 * self.root.winfo_width() / 1440),
             callback=self.change_flags_incorrect, 
             background=self.btclr,
             foreground='white'
@@ -367,8 +376,9 @@ class App():
         self.progressbar.step(amount)
                 
     def check_recognition(self):
-        self.bt_yes.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=self.bt_gen.winfo_height() // 2)
-        self.bt_no.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=self.bt_gen.winfo_height() // 2)
+        self.status_drawing.resize((self.fr_status.winfo_width(), 100))
+        self.bt_yes.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=100)
+        self.bt_no.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=100)
         self.bt_yes.pack(side='left')
         self.bt_no.pack(side='left')
         
@@ -423,7 +433,7 @@ class App():
     def update(self):
         if not self.frames_queue.empty():
             image = self.frames_queue.get().image
-            image = Image.fromarray(image.astype('uint8')).resize((320, 180))
+            image = Image.fromarray(image.astype('uint8')).resize((imgw, imgh))
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
             image = add_corners(image, 35)
             self.points_image = ImageTk.PhotoImage(image)
