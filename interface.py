@@ -156,6 +156,7 @@ def add_corners(im, rad):
 
 class App():
     def __init__(self):
+        global imgw, imgh
         self.root = tk.Tk()
         self.root.attributes("-fullscreen", True)
 
@@ -171,13 +172,14 @@ class App():
         self.fr_ctrl.place(relx=0, rely=0, relwidth=0.2, relheight=1)   
         self.root.update()  
         
-        self.fr_ctrl.columnconfigure(0, weight=0)
+        imgw *= self.root.winfo_width() / 1440
+        imgw *= self.root.winfo_height() / 899
         
+        self.fr_ctrl.columnconfigure(0, weight=0)
 
         # self.canvas.bind('<Button-1>', self.set_start)
         # self.canvas.bind('<B1-Motion>', self.draw_line)
         # self.canvas.bind('<ButtonRelease-1>', lambda x: self.end_line())
-        print(self.root.winfo_height())
         self.btfont = 'Jost'
         self.fontsize = int(35 * self.root.winfo_width() / 1440)
         self.fontprops = 'bold'
