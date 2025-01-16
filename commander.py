@@ -23,7 +23,8 @@ class Commander:
         commands_queue: Queue, 
         canvas_w, canvas_h, 
         shiftx, shifty,
-        flag_recognition, flag_recognition_result
+        flag_recognition, flag_recognition_result,
+        border
     ):
         self.frames_queue = frames_queue
         self.commands_queue = commands_queue
@@ -80,14 +81,17 @@ class Commander:
         if 'Click' in gestures and self.flag_drawing: 
             pg.moveTo(xm, ym, 0.0, _pause=False)  
             if not self.flag_drawing_line:         
-                self.flag_drawing_line = True
-                self.commands_queue.put(('set_start', [(xc, yc)]))
+                if xm > w * 0.2:
+                    self.commands_queue.put(('set_start', [(xc, yc)]))
+                    self.flag_drawing_line = True
                 pg.click()
-            else: 
+                print('click', time())
+            elif xm > w * 0.2:
                 self.commands_queue.put(('draw_line', [(xc, yc)]))
         elif 'Pointing_Up' in gestures or ('Click' in gestures and not self.flag_drawing):
-            self.commands_queue.put(('end_line', None))
-            self.flag_drawing_line = False
+            if xm > w * 0.2:
+                self.commands_queue.put(('end_line', None))
+                self.flag_drawing_line = False
             pg.moveTo(xm, ym, 0.0, _pause=False)
         elif self.flag_drawing and gestures.count('Open_Palm') == 2:
             self.flag_drawing_line = False
@@ -117,7 +121,7 @@ class Commander:
             if recognition_results.landmarks is None:
                 continue
             
-            fx, fy = recognition_results.landmarks[0, 8, :2]
+            fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
             fx *= recognition_results.image.shape[1]
             fy *= recognition_results.image.shape[0]
             self.draw(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
@@ -154,12 +158,22 @@ if __name__ == '__main__':
     flag_recognition = Value('i', 0)
     flag_recognition_result = Value('i', 0)
     
+    border = Value('i', 0)
+    
     frames_queue = Queue(-1)
     commands_queue = Queue(-1)
     
     gesture_recognizer = GestureRecognizer(frames_queue)
     app = App()
-    com = Commander(frames_queue, commands_queue, canvas_w, canvas_h, shiftx, shifty, flag_recognition, flag_recognition_result)
+    com = Commander(
+        frames_queue, 
+        commands_queue, 
+        canvas_w, canvas_h, 
+        shiftx, shifty, 
+        flag_recognition, 
+        flag_recognition_result,
+        border
+    )
 
     
     gesture_recognizer.start_loop()
@@ -180,7 +194,13 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, cleanup)
     
     try:
-        app.mainloop(frames_queue, commands_queue, canvas_w, canvas_h, shiftx, shifty, flag_recognition, flag_recognition_result)
+        app.mainloop(
+            frames_queue, 
+            commands_queue, 
+            canvas_w, canvas_h, 
+            shiftx, shifty, 
+            flag_recognition, flag_recognition_result
+        )
     except KeyboardInterrupt:
         cleanup(None, None)
     gesture_recognizer.join()

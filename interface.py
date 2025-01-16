@@ -248,14 +248,14 @@ class App():
         )
         self.bt_set_wd.pack(side='top', fill='x', pady=self.pad)
         
-        self.fr_wd_set = RoundedFrame(contour_color='#a72525', contour_width=5, width=200)
+        self.fr_wd_set = RoundedFrame(contour_color='#a72525', contour_width=5, width=200, bg='white')
         
-        for i in range(4, 15, 2):
-            cv = tk.Canvas(self.fr_wd_set, width=200, height=40, bg='white')
-            line = tk.Frame(cv, height=i, width=190, bg=self.line_options['fill'])
-            cv.bind('<Button-1>', lambda x, k = i: self.change_width(k))
+        for i in range(3, 16, 3):
+            cv = tk.Canvas(self.fr_wd_set, width=200, height=40, bg='white', highlightthickness=0)
+            line = tk.Frame(cv, height=i, width=190, bg='black')
+            cv.bind('<ButtonPress>', lambda x, k = i: self.change_width(k))
             cv.grid(row=i // 2, column=0, padx=10, pady=12)
-            line.bind('<Button-1>', lambda x, k = i: self.change_width(k))
+            line.bind('<ButtonPress>', lambda x, k = i: self.change_width(k))
             line.pack(padx=5, pady=10)
 
         #кнопка генерации
@@ -411,11 +411,12 @@ class App():
         else:
             x, y = cords
         self.line_points.append((x, y))
-        if self.line_id is not None:
-            self.canvas.delete(self.line_id)
-        self.line_id = self.canvas.create_line(self.line_points, **self.line_options)
-        self.draw.line(self.line_points, **self.line_options)
-        self.actions.append(lambda: self.draw.line(self.line_points, **self.line_options))
+        if len(self.line_points) >= 2:
+            if self.line_id is not None:
+                self.canvas.delete(self.line_id)
+            self.line_id = self.canvas.create_line(self.line_points, **self.line_options)
+            self.draw.line(self.line_points, **self.line_options)
+            # self.actions.append(lambda: self.draw.line(self.line_points, **self.line_options))
 
     def end_line(self):
         self.line_points.clear()
@@ -430,6 +431,7 @@ class App():
 
     def change_width(self, x):
         self.line_options['width'] = x
+        print(x)
         self.fr_wd_set.place_forget()
 
     def update(self):
