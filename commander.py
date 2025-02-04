@@ -63,41 +63,59 @@ class Commander:
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
             while not self.flag_recognition.value:
-                sleep(1)
-                continue
+                if self.frames_queue.empty():
+                    continue
+                
+                recognition_results = self.frames_queue.get()
+                
+                if recognition_results.landmarks is None:
+                    continue
+                
+                fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
+                fx *= recognition_results.image.shape[1]
+                fy *= recognition_results.image.shape[0]
+                self.move(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
         return text, text_en
-        
-    def draw(self, gestures: list, x: int, y: int, image_size: tuple):
+    
+    def move(self, gestures, x, y, image_size):
         delta = 50
         w, h = pg.size()
         imgw, imgh = image_size
-        x = imgh - x
         
         xm = map_coords(x, 0, imgh, 0, w + delta / 2)
         ym = map_coords(y, 0, imgw, 0, h + delta / 2)
         
-        xc = map_coords(x, 0, imgh, -self.shiftx.value, self.canvas_w.value)
-        yc = map_coords(y, 0, imgw, -self.shifty.value, self.canvas_h.value)
         if 'Click' in gestures and self.flag_drawing: 
             pg.moveTo(xm, ym, 0.0, _pause=False)  
-            if not self.flag_drawing_line:         
-                if xm > w * 0.2:
-                    self.commands_queue.put(('set_start', [(xc, yc)]))
-                    self.flag_drawing_line = True
+            if not self.flag_drawing_line:
                 pg.click()
-                print('click', time())
-            elif xm > w * 0.2:
-                self.commands_queue.put(('draw_line', [(xc, yc)]))
+                self.flag_drawing_line = True
         elif 'Pointing_Up' in gestures or ('Click' in gestures and not self.flag_drawing):
-            if xm > w * 0.2:
-                self.commands_queue.put(('end_line', None))
-                self.flag_drawing_line = False
             pg.moveTo(xm, ym, 0.0, _pause=False)
-        elif self.flag_drawing and gestures.count('Open_Palm') == 2:
             self.flag_drawing_line = False
-            self.commands_queue.put(('delete', None))
         else:
             self.flag_drawing_line = False
+        
+    def draw(self, gestures: list, x: int, y: int, image_size: tuple):
+        imgw, imgh = image_size
+        w, h = pg.size()
+        x = imgh - x
+        
+        xc = map_coords(x, 0, imgh, -self.shiftx.value, self.canvas_w.value)
+        yc = map_coords(y, 0, imgw, -self.shifty.value, self.canvas_h.value)
+        self.move(gestures, x, y, image_size)
+        if 'Click' in gestures and self.flag_drawing: 
+            if xc > w * 0.2:   
+                if not self.flag_drawing_line:      
+                    self.commands_queue.put(('set_start', [(xc, yc)]))
+                else:
+                    self.commands_queue.put(('draw_line', [(xc, yc)]))
+        elif 'Pointing_Up' in gestures or ('Click' in gestures and not self.flag_drawing):
+            if xc > w * 0.2:
+                self.commands_queue.put(('end_line', None))
+        elif self.flag_drawing and gestures.count('Open_Palm') == 2:
+            self.commands_queue.put(('delete', None))
+        else:
             if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 5: 
                 if not self.flag_drawing:
                     self.flag_drawing = True
