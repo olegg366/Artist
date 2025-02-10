@@ -76,7 +76,7 @@ class GestureRecognizer:
         return dist(landmarks[0, 4], landmarks[0, 8]) / dist(landmarks[0, 0], landmarks[0, 8]) <= 0.2
         
     def loop(self):
-        self.video = cv2.VideoCapture(0)
+        self.video = cv2.VideoCapture('rtmp://192.168.0.104/live')
         timestamp = 0
         options = HandLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=self.landmarker_path),

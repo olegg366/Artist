@@ -6,7 +6,7 @@ import pyautogui as pg
 from PIL import Image
 from time import time, sleep
 
-from multiprocessing import Process, Queue, Value
+from multiprocessing import Process, Queue, Value, set_start_method
 
 import matplotlib.pyplot as plt
 
@@ -184,18 +184,19 @@ class Commander:
                 
     def generate(self, text_ru: str, text_en: str):
         self.commands_queue.put(('print_text', (f'Подождите, идёт генерация по запросу {text_ru}...', )))
+        self.commands_queue.put(('setup_progressbar', None))
         self.commands_queue.put(('return_image', None))
         self.move_while(lambda: self.images_queue.empty())
         image = np.array(self.images_queue.get())
         
-        # self.generation_queue = Queue()
-        # generator = Generator(self.api_url, self.generation_queue)
-        # generator.start_generation(image, text_en, 'bad anatomy, bad quality, worst quality')
-        # self.move_while(lambda: self.generation_queue.empty())
-        # gen = Image.fromarray((self.generation_queue.get() * 255).astype('uint8'))
-        
-        self.gen = [Image.open('images/circle_hole.png'), Image.open('images/circle.png'), Image.open('images/gen.png')]
+        generation_queue = Queue()
+        generator = Generator(generation_queue, self.commands_queue)
+        generator.start_generation(image, text_en)
+        self.move_while(lambda: generation_queue.empty())
+        self.gen = generation_queue.get()
+
         self.commands_queue.put(('display', (self.gen, )))
+        self.commands_queue.put(('remove_progressbar', None))
         self.commands_queue.put(('print_text', (f'Выберите изображение', )))
         self.reset_flags()
         self.last_showed_end_time = time()
@@ -205,8 +206,6 @@ class Commander:
         self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
         image_idx = np.array(self.images_queue.get())
         image = self.gen[image_idx]
-        plt.imshow(image)
-        plt.show()
         self.commands_queue.put(('print_text', (f'Готово!', )))
         tm = time()
         self.move_while(lambda: time() - tm <= 3000)
@@ -228,6 +227,8 @@ class Commander:
         self.process.join()
         
 if __name__ == '__main__':
+    set_start_method('spawn')
+    
     canvas_w = Value('i', 0)
     canvas_h = Value('i', 0)
     

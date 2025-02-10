@@ -370,7 +370,7 @@ class App():
         elif self.now_clr == "yellow": self.now_clr = "red"
         self.status_drawing.change_color(self.now_clr)
                 
-    def progressbar_step(self, amount):        
+    def progressbar_step(self, amount=1):        
         self.progressval = (self.progressval + amount) % (self.progressmax + 1)
         if self.progressval == 0:
             self.progressval = 1
@@ -398,7 +398,9 @@ class App():
         self.progressbar.pack(fill='both')
         self.lb_progressbar.pack()
         self.lb_progressbar.pack()
-        
+
+    def remove_progressbar(self):
+        self.fr_progressbar.pack_forget()
         
     def set_start(self, cords):
         if isinstance(cords, tk.Event):
@@ -435,7 +437,6 @@ class App():
 
     def change_width(self, x):
         self.line_options['width'] = x
-        print(x)
         self.fr_wd_set.place_forget()
         
     def return_image(self):
