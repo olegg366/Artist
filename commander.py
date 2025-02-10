@@ -1,12 +1,19 @@
 import sys
 import signal
+import numpy as np
 import pyautogui as pg
+
+from PIL import Image
 from time import time, sleep
+
 from multiprocessing import Process, Queue, Value
+
+import matplotlib.pyplot as plt
 
 from utilites import map_coords
 
 from gesture_recognizer import GestureRecognizer
+from generator import Generator
 from interface import App
 
 import speech_recognition as sr
@@ -21,17 +28,33 @@ class Commander:
         self, 
         frames_queue: Queue, 
         commands_queue: Queue, 
+        images_queue: Queue,
+        api_url: str,
         canvas_w, canvas_h, 
         shiftx, shifty,
-        flag_recognition, flag_recognition_result,
-        border
+        flag_recognition, flag_recognition_result
     ):
         self.frames_queue = frames_queue
         self.commands_queue = commands_queue
+        self.images_queue = images_queue
+        
+        self.api_url = api_url
         
         self.flag_recognition = flag_recognition
         self.flag_recognition_result = flag_recognition_result
         
+        self.reset_flags()
+        
+        self.canvas_w = canvas_w
+        self.canvas_h = canvas_h
+        
+        self.shiftx = shiftx
+        self.shifty = shifty
+
+        
+    def reset_flags(self):
+        self.flag_recognition.value = 0
+        self.flag_recognition_result.value = 0
         self.flag_drawing = False
         self.flag_end = False
         self.flag_drawing_line = False
@@ -41,40 +64,45 @@ class Commander:
             'end': 0,
             'drag': 0
         }
-        
-        self.canvas_w = canvas_w
-        self.canvas_h = canvas_h
-        
-        self.shiftx = shiftx
-        self.shifty = shifty
+    
+    def move_while(self, cond: callable, check_gestures = False):
+        tm = time()
+        while cond():
+            if self.frames_queue.empty():
+                continue
+            
+            recognition_results = self.frames_queue.get()
+            
+            if recognition_results.landmarks is None:
+                continue
+            
+            fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
+            fx = recognition_results.image.shape[1] - fx * recognition_results.image.shape[1]
+            fy *= recognition_results.image.shape[0]
+            if ('Thumb_Up' in recognition_results.gestures and time() - self.last_showed_end_time > 3) or 'Thumb_Down' in recognition_results.gestures:
+                return 'Thumb_Up' in recognition_results.gestures
+            self.move(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
+        return
         
     def listen(self):
         # recognizer = sr.Recognizer()
         # translator = Translator()
         while not self.flag_recognition_result.value:
+            self.flag_recognition_result.value
+            self.flag_recognition.value = 0
             # with sr.Microphone() as source:
             #     recognizer.adjust_for_ambient_noise(source)
             #     self.commands_queue.put(('print_text', ('Говорите...', )))
             #     audio = recognizer.listen(source, phrase_time_limit=5)
             # text = recognizer.recognize_google(audio, language='ru-RU')
             # text_en = translator.translate(text, src='ru', dest='en').text
-            text = 'ананас'
-            text_en = 'pineapple'
+            text, text_en = 'ананас', 'pineapple'
+            print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
-            while not self.flag_recognition.value:
-                if self.frames_queue.empty():
-                    continue
-                
-                recognition_results = self.frames_queue.get()
-                
-                if recognition_results.landmarks is None:
-                    continue
-                
-                fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
-                fx *= recognition_results.image.shape[1]
-                fy *= recognition_results.image.shape[0]
-                self.move(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
+            result = self.move_while(lambda: not self.flag_recognition.value, check_gestures=True)
+            if result is not None:
+                self.flag_recognition_result.value = int(result)
         return text, text_en
     
     def move(self, gestures, x, y, image_size):
@@ -85,12 +113,12 @@ class Commander:
         xm = map_coords(x, 0, imgh, 0, w + delta / 2)
         ym = map_coords(y, 0, imgw, 0, h + delta / 2)
         
-        if 'Click' in gestures and self.flag_drawing: 
+        if 'Click' in gestures: 
             pg.moveTo(xm, ym, 0.0, _pause=False)  
             if not self.flag_drawing_line:
                 pg.click()
                 self.flag_drawing_line = True
-        elif 'Pointing_Up' in gestures or ('Click' in gestures and not self.flag_drawing):
+        elif 'Pointing_Up' in gestures:
             pg.moveTo(xm, ym, 0.0, _pause=False)
             self.flag_drawing_line = False
         else:
@@ -119,6 +147,7 @@ class Commander:
             if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 5: 
                 if not self.flag_drawing:
                     self.flag_drawing = True
+                    self.flag_drawing_line = False
                     self.last_showed_end_time = time()
                     self.commands_queue.put(('remove_instructions', None))
                     self.commands_queue.put(('remove_img', None))
@@ -128,6 +157,7 @@ class Commander:
                     self.last_showed_end_time = time()
                     self.flag_drawing = False
                     self.commands_queue.put(('change_status', None))
+                    
         
     def loop(self):
         while not self.terminate_flag:
@@ -143,12 +173,43 @@ class Commander:
             fx *= recognition_results.image.shape[1]
             fy *= recognition_results.image.shape[0]
             self.draw(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
-            
+
             if self.flag_end:
                 text_ru, text_en = self.listen()
-                print(text_ru, text_en)
-                self.flag_end = False
+                self.commands_queue.put(('delete_questions', None))
+                self.generate(text_ru, text_en)
+                self.plot()
+                self.commands_queue.put(('change_status', None))
+                self.commands_queue.put(('print_text', (f'', )))
                 
+    def generate(self, text_ru: str, text_en: str):
+        self.commands_queue.put(('print_text', (f'Подождите, идёт генерация по запросу {text_ru}...', )))
+        self.commands_queue.put(('return_image', None))
+        self.move_while(lambda: self.images_queue.empty())
+        image = np.array(self.images_queue.get())
+        
+        # self.generation_queue = Queue()
+        # generator = Generator(self.api_url, self.generation_queue)
+        # generator.start_generation(image, text_en, 'bad anatomy, bad quality, worst quality')
+        # self.move_while(lambda: self.generation_queue.empty())
+        # gen = Image.fromarray((self.generation_queue.get() * 255).astype('uint8'))
+        
+        self.gen = [Image.open('images/circle_hole.png'), Image.open('images/circle.png'), Image.open('images/gen.png')]
+        self.commands_queue.put(('display', (self.gen, )))
+        self.commands_queue.put(('print_text', (f'Выберите изображение', )))
+        self.reset_flags()
+        self.last_showed_end_time = time()
+    
+    def plot(self):
+        self.move_while(lambda: self.images_queue.empty())
+        self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
+        image_idx = np.array(self.images_queue.get())
+        image = self.gen[image_idx]
+        plt.imshow(image)
+        plt.show()
+        self.commands_queue.put(('print_text', (f'Готово!', )))
+        tm = time()
+        self.move_while(lambda: time() - tm <= 3000)
     
     def terminate(self):
         self.terminate_flag = True
@@ -160,7 +221,7 @@ class Commander:
         
     def start(self):
         self.terminate_flag = False
-        self.process = Process(target=self.loop, daemon=True)
+        self.process = Process(target=self.loop)
         self.process.start()
         
     def join(self):
@@ -176,21 +237,23 @@ if __name__ == '__main__':
     flag_recognition = Value('i', 0)
     flag_recognition_result = Value('i', 0)
     
-    border = Value('i', 0)
-    
     frames_queue = Queue(-1)
     commands_queue = Queue(-1)
+    images_queue = Queue(-1)
+    
+    api_url = 'https://qtf4vqzx-5000.euw.devtunnels.ms/generator'
     
     gesture_recognizer = GestureRecognizer(frames_queue)
     app = App()
     com = Commander(
         frames_queue, 
         commands_queue, 
+        images_queue,
+        api_url,
         canvas_w, canvas_h, 
         shiftx, shifty, 
         flag_recognition, 
-        flag_recognition_result,
-        border
+        flag_recognition_result
     )
 
     
@@ -215,6 +278,7 @@ if __name__ == '__main__':
         app.mainloop(
             frames_queue, 
             commands_queue, 
+            images_queue,
             canvas_w, canvas_h, 
             shiftx, shifty, 
             flag_recognition, flag_recognition_result

@@ -104,7 +104,7 @@ class RoundedFrame(tk.Canvas):
         
         bbox = self.bbox(self.text)
         w = bbox[2] - bbox[0]
-        if w > self.winfo_width():
+        if w > self.winfo_width() - 2:
             average_char_width = w / len(text)
             chars_per_line = int(self.winfo_width() / average_char_width)
             while w > self.winfo_width():  
@@ -175,6 +175,8 @@ class App():
         imgw = int(imgw * self.root.winfo_width() / 1440)
         imgh = int(imgh * self.root.winfo_height() / 899)
         
+        self.image_storage = tk.Frame(self.canvas, bg='white')
+        
         self.fr_ctrl.columnconfigure(0, weight=0)
 
         # self.canvas.bind('<Button-1>', self.set_start)
@@ -187,8 +189,6 @@ class App():
         self.btclr = '#6d2222'
         self.btpress = '#e77774'
         self.bttextclr = 'white'
-        
-        self.image_panel = tk.Label(self.canvas)
 
         self.points_image = ImageTk.PhotoImage(Image.fromarray(np.ones((imgh, imgw))))
         self.points_image_panel = tk.Label(self.fr_ctrl, image=self.points_image, bg="lightgrey")
@@ -383,6 +383,10 @@ class App():
         self.bt_no.configure(width=self.fr_ctrl.winfo_width() // 2 - 5, height=100)
         self.bt_yes.pack(side='left')
         self.bt_no.pack(side='left')
+    
+    def delete_questions(self):
+        self.bt_yes.pack_forget()
+        self.bt_no.pack_forget()
         
     def setup_progressbar(self):
         self.bt_yes.pack_forget()
@@ -433,6 +437,9 @@ class App():
         self.line_options['width'] = x
         print(x)
         self.fr_wd_set.place_forget()
+        
+    def return_image(self):
+        self.images_queue.put(self.image)
 
     def update(self):
         if not self.frames_queue.empty():
@@ -458,9 +465,10 @@ class App():
         self.shiftx.value = self.root.winfo_x()
         self.shifty.value = self.root.winfo_y()
         
-        if not self.commands_queue.empty():
+        while not self.commands_queue.empty():
             f, args = self.commands_queue.get()
             func = getattr(self, f)
+            # print(args)
             if args is None: func()
             else: func(*args)
         self.root.update()
@@ -469,12 +477,14 @@ class App():
         self, 
         frames_queue: Queue, 
         commands_queue: Queue, 
+        images_queue,
         canvas_w, canvas_h, 
         shiftx, shifty,
         flag_recognition, flag_recognition_result
     ):
         self.frames_queue = frames_queue
         self.commands_queue = commands_queue
+        self.images_queue = images_queue
         
         self.canvas_w = canvas_w
         self.canvas_h = canvas_h        
@@ -493,13 +503,55 @@ class App():
         self.status_drawing.change_text(text)
                         
     def remove_img(self):
-        self.image_panel.pack_forget()
+        self.image_storage.pack_forget()
     
-    def display(self, img: Image):
-        if img.size[0] < img.size[1]:
-            img = img.resize((self.canvas.winfo_width(),  int(self.canvas.winfo_width() / img.size[0] * img.size[1])))
-        else: 
-            img = img.resize((int(self.canvas.winfo_height() / img.size[1] * img.size[0]), self.canvas.winfo_height()))
-        self.display_img = ImageTk.PhotoImage(img)
-        self.image_panel.configure(image=self.display_img)
-        self.image_panel.pack(side="bottom", fill="both", expand="yes")
+    def select_image(self, k):
+        self.images_queue.put(k)
+    
+    def display(self, images: list):
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        w = int(w / 2)
+        h = int(h / 2)
+        w -= self.fr_ctrl.winfo_width()
+        
+        self.display_imgs = []
+        self.image_panels = []
+        
+        self.image_storage.rowconfigure(0, weight=1)
+        self.image_storage.rowconfigure(1, weight=1)
+        self.image_storage.columnconfigure(0, weight=1)
+        self.image_storage.columnconfigure(1, weight=1)
+        
+        for i, img in enumerate(images):
+            if img.size[0] < img.size[1]:
+                img = img.resize((w,  int(w / img.size[1] * img.size[0])))
+            else: 
+                img = img.resize((int(h / img.size[0] * img.size[1]), h))
+            self.display_imgs.append(ImageTk.PhotoImage(img))
+            self.image_panels.append(tk.Label(
+                self.image_storage, 
+                image=self.display_imgs[i], 
+                bg='white', 
+            ))
+            # self.image_panels[i].bind(
+            #     '<Enter>', 
+            #     lambda x, k = i: self.image_panels[k].configure(highlightbackground='green')
+            # )
+            # self.image_panels[i].bind(
+            #     '<Leave>', 
+            #     lambda x, k = i: self.image_panels[k].configure(highlightbackground='white')
+            # )
+            self.image_panels[i].bind(
+                '<ButtonPress>', 
+                lambda x, k = i: self.select_image(k)
+            )
+            # self.image_panels[i].bind(
+            #     '<ButtonRelease>', 
+            #     lambda x, k = i: self.image_panels[k].configure(relief=None, highlightbackground='green')
+            # )            
+            if i == 2:
+                self.image_panels[i].grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+            else:
+                self.image_panels[i].grid(row=0, column=i, padx=5, pady=5)
+                
+        self.image_storage.pack(side='top', padx=[self.fr_ctrl.winfo_width(), 0])
