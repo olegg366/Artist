@@ -36,6 +36,7 @@ def scale_contour(cnt, scale):
 # Основная функция для обнаружения бумаги и зеленых квадратов
 def detect_paper(frame, warp=False):
     frame = frame[:, 200:950]
+    frame = cv2.flip(frame, 1)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
     # Определяем диапазоны цветов для черной и зеленой маски
@@ -48,7 +49,7 @@ def detect_paper(frame, warp=False):
     mask1 = cv2.inRange(hsv, lower_green, upper_green)
     mask2 = cv2.inRange(hsv, lower_black, upper_black)
     mask = mask1 & (~mask2)
-    
+    # cv2.imshow('sus', mask)
 
     # Находим контуры на маске
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -120,7 +121,7 @@ def detect_paper(frame, warp=False):
 
 # Основной блок программы
 if __name__ == '__main__':
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(2)
 
     if not cap.isOpened():
         print('Не удалось открыть камеру')

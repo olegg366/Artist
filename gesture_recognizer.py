@@ -4,6 +4,9 @@ import numpy as np
 from utilites import dist, draw_landmarks_on_image
 
 from keras.models import load_model
+import tensorflow as tf
+from tensorflow.python.saved_model import signature_constants
+from tensorflow.python.saved_model import tag_constants
 
 import mediapipe as mp
 from multiprocessing import Process, Queue
@@ -19,6 +22,10 @@ classes_mapper = {
     2 : 'Thumb_Up',
     3 : 'Thumb_Down'
 }
+
+gpu_devices = tf.config.experimental.list_physical_devices('GPU')
+for device in gpu_devices:
+    tf.config.experimental.set_memory_growth(device, True)
 
 class RecognitionResult:
     def __init__(
@@ -36,6 +43,7 @@ class GestureRecognizer:
     def __init__(
         self,
         queue: Queue,
+        mode: str = 'raw',
         landmarker_path: str = 'mlmodels/hand_landmarker.task', 
         recognizer_path: str = "mlmodels/static.keras",
         running_mode: str = "VIDEO"
@@ -44,6 +52,7 @@ class GestureRecognizer:
         
         self.running_mode = running_mode
         
+        self.mode = mode
         self.recognizer_path = recognizer_path
         self.landmarker_path = landmarker_path
         
@@ -74,18 +83,36 @@ class GestureRecognizer:
     
     def is_click(self, landmarks):
         return dist(landmarks[0, 4], landmarks[0, 8]) / dist(landmarks[0, 0], landmarks[0, 8]) <= 0.2
+    
+    def get_func_from_saved_model(self, saved_model_dir):
+        saved_model_loaded = tf.saved_model.load(
+            saved_model_dir, tags=[tag_constants.SERVING])
+        graph_func = saved_model_loaded.signatures[
+            signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+        return graph_func, saved_model_loaded
+    
+    def predict(self, landmarks):
+        if self.mode == 'raw':
+            return self.recognizer.predict(landmarks, verbose=False)
+        if self.mode == 'tensorrt':
+            inp = {'conv1d_input': tf.convert_to_tensor(landmarks)}
+            pred = self.trt_func(**inp)['dense_1']
+            return pred
         
     def loop(self):
-        self.video = cv2.VideoCapture('rtmp://192.168.0.104/live')
+        self.video = cv2.VideoCapture(0)
         timestamp = 0
         options = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=self.landmarker_path),
+            base_options=BaseOptions(model_asset_path=self.landmarker_path, delegate=1), 
             num_hands=2,
             running_mode=getattr(VisionRunningMode, self.running_mode)
         )
         
         self.landmarker = HandLandmarker.create_from_options(options)
-        self.recognizer = load_model(self.recognizer_path)
+        if self.mode == 'raw':
+            self.recognizer = load_model(self.recognizer_path)
+        elif self.mode == 'tensorrt':
+            self.trt_func, _ = self.get_func_from_saved_model(self.recognizer_path)
         while not self.terminate_flag:
             flag, img = self.video.read()
             
@@ -105,7 +132,7 @@ class GestureRecognizer:
                 if self.is_click(landmarks):
                     gestures = ['Click']                  
                 else:
-                    recognitions = self.recognizer.predict(landmarks, verbose=False)
+                    recognitions = self.predict(landmarks)
                     gestures = [
                         classes_mapper[recognition]
                         for recognition in np.argmax(recognitions, axis=-1)

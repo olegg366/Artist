@@ -1,14 +1,20 @@
+import os
 import serial
 from time import sleep
 import mediapipe as mp
 from math import cos, acos, pi
 import cv2
-from multiprocessing import Process
+from multiprocessing import Process, Value
 from keras.models import load_model
 from gesture_recognizer import BaseOptions, HandLandmarker, HandLandmarkerOptions, VisionRunningMode
 
 class HandChecker:
-    def __init__(self, video_id, pause, landmarker_path = 'mlmodels/hand_landmarker.task'):
+    def __init__(
+        self, 
+        video_id, 
+        pause, 
+        landmarker_path = 'mlmodels/hand_landmarker.task'
+    ):
         self.video_id = video_id
         self.pause = pause
         self.landmarker_path = landmarker_path
@@ -16,6 +22,7 @@ class HandChecker:
     def start_loop(self):
         self.terminate_flag = False
         self.process = Process(target=self.loop, daemon=True)
+        self.process.start()
     
     def terminate(self):
         self.terminate_flag = True
@@ -29,7 +36,7 @@ class HandChecker:
         self.video = cv2.VideoCapture(self.video_id)
         timestamp = 0
         options = HandLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=self.landmarker_path),
+            base_options=BaseOptions(model_asset_path=self.landmarker_path, delegate=1),
             num_hands=2,
             running_mode=getattr(VisionRunningMode, self.running_mode)
         )
@@ -67,19 +74,20 @@ def calculate_distance(ax, ay, bx, by):
         
 
 class Plotter(serial.Serial):
-    def __init__(self, video_id, pause, speed = 8000, *args, **kwargs):
+    def __init__(self, video_id, speed = 8000, *args, **kwargs):
+        port = kwargs['port']
+        os.system(f'echo Dragon2009 | sudo -S chmod 666 {port}')
         super(Plotter, self).__init__(*args, **kwargs)
         sleep(2)
-        self.read_until(b'ok\n')
         self.write_command('G90')
         
         self.calibrate_servo()
         
         self.video_id = video_id
-        self.pause = pause
+        self.pause = Value('i', 0)
         self.speed = speed
         
-    def write_command(self, command):
+    def write_command(self, command: str):
         command += '\n'
         self.write(command.encode())
         return self.read_until(b'ok\n').decode()
@@ -173,7 +181,7 @@ class Plotter(serial.Serial):
                 self.move_to(*gcode)
                 d = calculate_distance(prev_x, prev_y, gcode[0], gcode[1]) / (gcode[2] / 60)
                 sleep(d + 0.1)
-                prev_x, prev_y = gcode
+                prev_x, prev_y = gcode[:2]
         except KeyboardInterrupt:
             pass
         except Exception as e:
@@ -197,4 +205,8 @@ class Plotter(serial.Serial):
                     print(self.write_command(command))       
         except KeyboardInterrupt:
             self.control_servo('maxup')
-            self.move_to()
+            self.move_to(0, 0)
+            
+if __name__ == '__main__':
+    plotter = Plotter(2, port='/dev/ttyACM0', baudrate=115200)
+    plotter.interface()

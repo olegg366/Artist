@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
+import io
 from PIL import Image
 from imageio.v2 import imread, imwrite
 from time import sleep, time
@@ -14,7 +15,7 @@ from skimage.morphology import binary_dilation, square
 
 import ctypes as c
 
-from serial_control import generate_gcode, send_gcode
+from plotter import Plotter
 
 from multiprocessing import Process, Queue
 
@@ -36,6 +37,9 @@ class TrajectoryLib:
         self.lib_folder = lib_folder
         self.cuda_version = cuda_version
         self.gpu_arch = gpu_arch
+        
+        self.compile_lib()
+        self.load_lib()
         
     def compile_lib(self):
         # Открываем исходный файл и файл предыдущей версии
@@ -78,23 +82,32 @@ class TrajectoryLib:
         self.lib = c.CDLL(f'{self.lib_folder}/trajectory.so')
 
         # Определяем типы указателей для функций библиотеки
-        self.DPOINTER2D = np.ctypeslib.ndpointer(
+        DPOINTER2D = np.ctypeslib.ndpointer(
             dtype=np.float128,
             ndim=2,
             flags='C'
         )
 
-        self.DPOINTER3D = np.ctypeslib.ndpointer(
+        DPOINTER3D = np.ctypeslib.ndpointer(
             dtype=np.float128,
             ndim=3,
             flags='C'
         )
 
-        self.IPOINTER2D = np.ctypeslib.ndpointer(
+        IPOINTER2D = np.ctypeslib.ndpointer(
             dtype=np.int32,
             ndim=2,
             flags='C'
         )
+        
+        self.lib.mark_image_with_colors.argtypes = [DPOINTER2D, DPOINTER2D, c.c_size_t, c.c_size_t, c.c_size_t, c.c_size_t]
+        self.lib.mark_image_with_colors.restype = None
+
+        self.lib.fill_image_area.argtypes = [c.c_int32, c.c_int32, IPOINTER2D, DPOINTER3D, c.c_size_t, c.c_size_t, c.c_size_t]
+        self.lib.fill_image_area.restype = None
+
+        self.lib.compute_image_trajectory.argtypes = [IPOINTER2D, c.c_size_t, c.c_size_t, c.c_int32, c.c_int32, c.c_int32]
+        self.lib.compute_image_trajectory.restype = c.POINTER(c.c_int32)
     
     def mark(self, img, clrs):
         """
@@ -236,11 +249,28 @@ def dist(x1, y1, x2, y2):
 
     
 class Drawer:
-    def __init__(self, lib: TrajectoryLib, serial: Serial, video: cv2.VideoCapture):
-        self.lib = lib
-        self.video = video
-        self.serial = serial
-    
+    def __init__(
+        self,
+        images_queue: Queue,
+        cpp_path: str, 
+        lib_folder: str, 
+        video_id: int,
+        flag_end,
+        cuda_version: str = '12.5', 
+        gpu_arch: str = '86',
+        port: str = '/dev/ttyACM0',
+        baudrate: int = 115200,
+    ):
+        self.images_queue = images_queue
+        self.cpp_path = cpp_path
+        self.lib_folder = lib_folder
+        self.video_id = video_id
+        self.flag_end = flag_end
+        self.cuda_version = cuda_version
+        self.gpu_arch = gpu_arch
+        self.port = port
+        self.baudrate = baudrate
+        
     def get_raw_trajectory(self, img):
         idx = 0
         trajectory = []
@@ -255,20 +285,20 @@ class Drawer:
                 trajectory.append([1e9, 1e9])
         return np.array(trajectory)
     
-    def compute_angle(self, show):
+    def compute_angle(self, show = False):
         points = []
         cnt = 0
         
         print("Get ready...")
-        self.serial.write(b'G90\n')
-        self.serial.write(b'G1 X350 F16000\n')
-        self.serial.read_until(b'ok\n')
-        sleep(2)
+        self.plotter.move_to(350, 0, 16000)
+        
+        video = cv2.VideoCapture(self.video_id)
+        video.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+        video.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         
         try:
             while True:
-                ret, frame = self.video.read()
-                frame = cv2.flip(frame, 1)
+                ret, frame = video.read()
                 
                 if not ret:
                     print('Cant')
@@ -283,21 +313,19 @@ class Drawer:
                     cv2.imshow('img', frame)
                     cv2.waitKey(1)
         except KeyboardInterrupt:
-            self.video.release()
-            self.serial.write(b'G1 X0 F16000\n')
-            self.serial.close()
+            video.release()
+            cv2.destroyAllWindows()
+            self.plotter.move_to(0, 0, 16000)
             raise(KeyboardInterrupt)
         
-        self.video.release()
-        self.serial.write(b'G1 X0 F16000\n')
-        self.serial.read_until(b'ok\n')
-        self.serial.close()
+        video.release()
+        self.plotter.move_to(0, 0, 16000)
         
         w, h = sorted([dist(*points[0], *points[1]), dist(*points[1], *points[2])])
-        for i in range(1, len(points)):
+        for i in range(len(points)):
             x = dist(*points[i], *points[(i + 1) % len(points)])
-            y = dist(*points[i], *points[i - 1])
-            if x == h and y == w:
+            y = dist(*points[i], *points[(i - 1 + len(points)) % len(points)])
+            if abs(x - h) <= 2 and abs(y - w) <= 2:
                 idx = i
                 break
     
@@ -306,9 +334,20 @@ class Drawer:
         mx, my = points[1]
         angle = get_angle(0, 1, mx - sx, my - sy)
         
-        return angle, w, sx, sy, frame
-
-    def draw_trajectory(trajectory, image):
+        return angle, w, sx, sy, cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    
+    def read_image_from_ax(self, ax):
+        ax.axis("off")
+        ax.figure.canvas.draw()
+        buff = io.BytesIO()
+        trans = ax.figure.dpi_scale_trans.inverted()
+        bbox = ax.bbox.transformed(trans)
+        plt.savefig(buff, format="png", dpi=ax.figure.dpi, bbox_inches=bbox)
+        buff.seek(0)
+        img = plt.imread(buff)
+        return img
+        
+    def draw_trajectory(self, trajectory, image):
         ax = plt.subplot()
         ax.imshow(image.astype('uint8'))
         i = 0
@@ -321,8 +360,7 @@ class Drawer:
             while i < len(trajectory) and trajectory[i, 0] != 1e9:
                 i += 1
             ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
-        plt.get_current_fig_manager().full_screen_toggle()
-        plt.show()
+        return self.read_image_from_ax(ax)
     
     def get_trajectory(self, img, crop=False, show=False):
         """
@@ -346,54 +384,34 @@ class Drawer:
         print('got trajectory')
         # print(trajectory)
         trajectory = np.array(trajectory)
-        angle, w, sx, sy, frame = self.compute_angle(show)
+        angle, w, sx, sy, frame = self.compute_angle()
         index = np.any(np.abs(trajectory) != [1e9, 1e9], axis=1)
         
         k = w / max(img.shape)
         test_shift = shift_coords(sx, sy, pi / 2 - angle, trajectory[index], k)
         if np.max(test_shift) > max(frame.shape): angle = pi/2 + angle
         else: angle = pi / 2 - angle
-        trajectory[index] = shift_coords(sx, sy, angle, trajectory[index])
+        trajectory[index] = shift_coords(sx, sy, angle, trajectory[index], k)
         # print(trajectory.tolist())
         trajectory = trajectory[:, [1, 0]]
         if show:
-            Drawer.draw_trajectory(trajectory, frame)
+            return trajectory, self.draw_trajectory(trajectory, frame)
         
         return trajectory
     
-    def start(
-        self, 
-        cpp_path, 
-        lib_folder, 
-        video_id,
-        cuda_version = '12.5', 
-        gpu_arch = '86',
-    ):
-        process = Process(target=self.work, args=(
-            cpp_path, 
-            lib_folder, 
-            cuda_version, 
-            gpu_arch,
-            video_id
-        ))
+    def start(self, image: np.ndarray):
+        process = Process(target=self.work, args=(image, ))
+        process.start()
 
-    def work(
-        self,
-        cpp_path, 
-        lib_folder, 
-        cuda_version,
-        gpu_arch,
-        video_id,
+    def work(self, image):
+        self.lib = TrajectoryLib(
+            self.cpp_path, 
+            self.lib_folder, 
+            self.cuda_version, self.gpu_arch
+        )
+        self.plotter = Plotter(self.video_id, port=self.port, baudrate=self.baudrate)
         
-    ):
-        
-        
-if __name__ == '__main__':
-    lib = TrajectoryLib('trajectory.cpp', 'lib')
-    serial = Serial('/dev/ttyACM0', 115200)
-    video = cv2.VideoCapture('rtmp://192.168.0.104/live')
-    drawer = Drawer(lib, serial, video)
-    
-    img = imread('images/gen.png')
-    img = rotate(resize(img, (512, img.shape[1] * (512 / img.shape[0]))), 0)
-    traj = drawer.get_trajectory(img)
+        trajectory, image = self.get_trajectory(image, show=True)
+        self.images_queue.put(image)
+        self.plotter.plot_trajectory(trajectory)
+        self.flag_end.value = 1

@@ -23,51 +23,52 @@ class Generator:
         return callback_kwargs
     
     def generate(self, img: np.ndarray, prompt: str, negative_prompt: str = 'bad anatomy, worst quality, bad quality'):
-        print(img)
-        img = invert(img)
-        img[img != 255] = 0 
-        img[img == 255] = 1 
-        image = Image.fromarray(img)
+        # img = invert(img)
+        # img[img != 255] = 0 
+        # img[img == 255] = 1 
+        # image = Image.fromarray(img)
         
-        print('Настройка Stable Diffusion...')
-        controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
-                                                    torch_dtype=torch.float32).to('cuda')
-        pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
-                                                                controlnet=controlnet,
-                                                                safety_checker=None, 
-                                                                use_safetensors=True,
-                                                                torch_dtype=torch.float32).to('cuda')
+        # print('Настройка Stable Diffusion...')
+        # controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
+        #                                             torch_dtype=torch.float32).to('cuda')
+        # pipe = StableDiffusionControlNetPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", 
+        #                                                         controlnet=controlnet,
+        #                                                         safety_checker=None, 
+        #                                                         use_safetensors=True,
+        #                                                         torch_dtype=torch.float32).to('cuda')
 
-        helper = DeepCacheSDHelper(pipe=pipe)
-        helper.set_params(
-            cache_interval=5,
-            cache_branch_id=0,
-        )
-        helper.enable()
+        # helper = DeepCacheSDHelper(pipe=pipe)
+        # helper.set_params(
+        #     cache_interval=5,
+        #     cache_branch_id=0,
+        # )
+        # helper.enable()
 
-        pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
+        # pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
 
-        pipe.enable_xformers_memory_efficient_attention()
+        # pipe.enable_xformers_memory_efficient_attention()
 
-        pipe.unet.to(memory_format=torch.channels_last)
-        pipe.vae.to(memory_format=torch.channels_last)
+        # pipe.unet.to(memory_format=torch.channels_last)
+        # pipe.vae.to(memory_format=torch.channels_last)
         
-        tomesd.apply_patch(pipe)
+        # tomesd.apply_patch(pipe)
         
-        print('Stable Diffusion успешно настроен.')
+        # print('Stable Diffusion успешно настроен.')
 
-        generated_images = pipe(
-            prompt, image, 
-            num_inference_steps=50, 
-            negative_prompt=negative_prompt,
-            height=512, width=512, 
-            num_images_per_prompt=3,
-            callback_on_step_end=self.callback
-        ).images
+        # generated_images = pipe(
+        #     prompt, image, 
+        #     num_inference_steps=50, 
+        #     negative_prompt=negative_prompt,
+        #     height=512, width=512, 
+        #     num_images_per_prompt=3,
+        #     callback_on_step_end=self.callback
+        # ).images
         
-        del pipe, controlnet
-        gc.collect()
-        torch.cuda.empty_cache()
+        # del pipe, controlnet
+        # gc.collect()
+        # torch.cuda.empty_cache()
+        
+        generated_images = [Image.open('images/gen.png'), Image.open('images/gen.png'), Image.open('images/gen.png')]
     
         self.output_queue.put(generated_images)
     

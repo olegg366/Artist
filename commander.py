@@ -15,6 +15,7 @@ from utilites import map_coords
 from gesture_recognizer import GestureRecognizer
 from generator import Generator
 from interface import App
+from drawer import Drawer
 
 import speech_recognition as sr
 from googletrans import Translator
@@ -32,7 +33,15 @@ class Commander:
         api_url: str,
         canvas_w, canvas_h, 
         shiftx, shifty,
-        flag_recognition, flag_recognition_result
+        flag_recognition, flag_recognition_result,
+        cpp_path: str, 
+        lib_folder: str, 
+        video_id: int,
+        flag_end_plotting,
+        cuda_version: str = '12.5', 
+        gpu_arch: str = '86',
+        port: str = '/dev/ttyACM0',
+        baudrate: int = 115200,
     ):
         self.frames_queue = frames_queue
         self.commands_queue = commands_queue
@@ -50,6 +59,15 @@ class Commander:
         
         self.shiftx = shiftx
         self.shifty = shifty
+        
+        self.cpp_path = cpp_path
+        self.lib_folder = lib_folder
+        self.video_id = video_id
+        self.flag_end_plotting = flag_end_plotting
+        self.cuda_version = cuda_version
+        self.gpu_arch = gpu_arch
+        self.port = port
+        self.baudrate = baudrate
 
         
     def reset_flags(self):
@@ -85,18 +103,24 @@ class Commander:
         return
         
     def listen(self):
-        # recognizer = sr.Recognizer()
-        # translator = Translator()
+        recognizer = sr.Recognizer()
+        translator = Translator()
         while not self.flag_recognition_result.value:
-            self.flag_recognition_result.value
+            self.flag_recognition_result.value = 0
             self.flag_recognition.value = 0
-            # with sr.Microphone() as source:
-            #     recognizer.adjust_for_ambient_noise(source)
-            #     self.commands_queue.put(('print_text', ('Говорите...', )))
-            #     audio = recognizer.listen(source, phrase_time_limit=5)
-            # text = recognizer.recognize_google(audio, language='ru-RU')
-            # text_en = translator.translate(text, src='ru', dest='en').text
-            text, text_en = 'ананас', 'pineapple'
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source)
+                self.commands_queue.put(('print_text', ('Говорите...', )))
+                audio = recognizer.listen(source, phrase_time_limit=5)
+            try:
+                text = recognizer.recognize_google(audio, language='ru-RU')
+            except sr.exceptions.UnknownValueError:
+                self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
+                tm = time()
+                self.move_while(lambda: time() - tm <= 2000)
+                continue
+            text_en = translator.translate(text, src='ru', dest='en').text
+            # text, text_en = 'ананас', 'pineapple'
             print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
@@ -160,6 +184,20 @@ class Commander:
                     
         
     def loop(self):
+        self.generation_queue = Queue()
+        self.generator = Generator(self.generation_queue, self.commands_queue)
+        
+        self.drawer = Drawer(
+            self.images_queue,
+            self.cpp_path, 
+            self.lib_folder, 
+            self.video_id,
+            self.flag_end_plotting,
+            self.cuda_version, 
+            self.gpu_arch,
+            self.port,
+            self.baudrate,
+        )
         while not self.terminate_flag:
             if self.frames_queue.empty():
                 continue
@@ -173,7 +211,6 @@ class Commander:
             fx *= recognition_results.image.shape[1]
             fy *= recognition_results.image.shape[0]
             self.draw(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
-
             if self.flag_end:
                 text_ru, text_en = self.listen()
                 self.commands_queue.put(('delete_questions', None))
@@ -189,11 +226,9 @@ class Commander:
         self.move_while(lambda: self.images_queue.empty())
         image = np.array(self.images_queue.get())
         
-        generation_queue = Queue()
-        generator = Generator(generation_queue, self.commands_queue)
-        generator.start_generation(image, text_en)
-        self.move_while(lambda: generation_queue.empty())
-        self.gen = generation_queue.get()
+        self.generator.start_generation(image, text_en)
+        self.move_while(lambda: self.generation_queue.empty())
+        self.gen = self.generation_queue.get()
 
         self.commands_queue.put(('display', (self.gen, )))
         self.commands_queue.put(('remove_progressbar', None))
@@ -204,9 +239,18 @@ class Commander:
     def plot(self):
         self.move_while(lambda: self.images_queue.empty())
         self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
-        image_idx = np.array(self.images_queue.get())
+        image_idx = self.images_queue.get()
         image = self.gen[image_idx]
+        
+        self.commands_queue.put(('display_one', (image, )))
+        self.drawer.start(np.array(image))
+        
+        self.move_while(lambda: self.images_queue.empty())
+        self.commands_queue.put(('display_two', ([Image.fromarray((self.images_queue.get() * 255).astype('uint8')), image], )))
+        
+        self.move_while(lambda: bool(self.flag_end_plotting.value))
         self.commands_queue.put(('print_text', (f'Готово!', )))
+        
         tm = time()
         self.move_while(lambda: time() - tm <= 3000)
     
@@ -242,9 +286,18 @@ if __name__ == '__main__':
     commands_queue = Queue(-1)
     images_queue = Queue(-1)
     
+    cpp_path = 'trajectory.cpp'
+    lib_folder = 'lib'
+    second_video_id = 2
+    flag_end_plotting = Value('i', 0)
+    cuda_version = '11.8'
+    gpu_arch = '86'
+    port = '/dev/ttyACM0'
+    baudrate = 115200
+    
     api_url = 'https://qtf4vqzx-5000.euw.devtunnels.ms/generator'
     
-    gesture_recognizer = GestureRecognizer(frames_queue)
+    gesture_recognizer = GestureRecognizer(frames_queue, mode='tensorrt', recognizer_path='mlmodels/static_tftrt')
     app = App()
     com = Commander(
         frames_queue, 
@@ -254,7 +307,15 @@ if __name__ == '__main__':
         canvas_w, canvas_h, 
         shiftx, shifty, 
         flag_recognition, 
-        flag_recognition_result
+        flag_recognition_result,
+        cpp_path, 
+        lib_folder, 
+        second_video_id,
+        flag_end_plotting,
+        cuda_version, 
+        gpu_arch,
+        port,
+        baudrate,
     )
 
     

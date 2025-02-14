@@ -172,8 +172,8 @@ class App():
         self.fr_ctrl.place(relx=0, rely=0, relwidth=0.2, relheight=1)   
         self.root.update()  
         
-        imgw = int(imgw * self.root.winfo_width() / 1440)
-        imgh = int(imgh * self.root.winfo_height() / 899)
+        # imgw = int(imgw * self.root.winfo_width() / 1440)
+        # imgh = int(imgh * self.root.winfo_height() / 899)
         
         self.image_storage = tk.Frame(self.canvas, bg='white')
         
@@ -451,15 +451,6 @@ class App():
             self.points_image = ImageTk.PhotoImage(image)
             self.points_image_panel.configure(image=self.points_image)
         
-        h, w = self.canvas.winfo_height(), self.canvas.winfo_width()
-        if w != self.prevw or h != self.prevh:
-            self.image = self.image.resize((w, h))
-            self.draw = ImageDraw.Draw(self.image)
-            self.prevh = h
-            self.prevw = w
-            for action in self.actions:
-                action()
-        
         self.canvas_w.value = self.canvas.winfo_width()
         self.canvas_h.value = self.canvas.winfo_height()
         
@@ -508,8 +499,54 @@ class App():
     
     def select_image(self, k):
         self.images_queue.put(k)
+            
+    def display_one(self, img):
+        self.image_storage.pack_forget()
+        
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        w -= self.fr_ctrl.winfo_width()
+        if img.size[0] < img.size[1]:
+            img = img.resize((w,  int(w / img.size[1] * img.size[0])))
+        else: 
+            img = img.resize((int(h / img.size[0] * img.size[1]), h))
+        self.display_img = ImageTk.PhotoImage(img)
+        self.image_panel = tk.Label(
+            self.canvas, 
+            image=self.display_img, 
+            bg='white', 
+        )
+        self.image_panel.pack(side='top', padx=[self.fr_ctrl.winfo_width(), 0])
+    
+    def display_two(self, images):
+        self.image_panel.pack_forget()
+        
+        w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
+        w = int(w / 2)
+        # h = int(h / 2)
+        w -= self.fr_ctrl.winfo_width()
+        
+        self.display_imgs = []
+        self.image_panels = []
+        
+        for i, img in enumerate(images):
+            if img.size[0] < img.size[1]:
+                img = img.resize((w,  int(w / img.size[1] * img.size[0])))
+            else: 
+                img = img.resize((int(h / img.size[0] * img.size[1]), h))
+            self.display_imgs.append(ImageTk.PhotoImage(img))
+            self.image_panels.append(tk.Label(
+                self.image_storage, 
+                image=self.display_imgs[i], 
+                bg='white', 
+            ))
+            self.image_panels[i].grid(row=0, column=i, rowspan=2, padx=5, pady=5)
+        self.image_storage.pack(side='top', padx=[self.fr_ctrl.winfo_width(), 0])
     
     def display(self, images: list):
+        self.image = Image.new("RGB", (self.canvas.winfo_width(), self.canvas.winfo_height()), (255, 255, 255))
+        self.draw = ImageDraw.Draw(self.image)
+        self.canvas.delete('all')
+        
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         w = int(w / 2)
         h = int(h / 2)
