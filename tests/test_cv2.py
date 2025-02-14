@@ -1,6 +1,6 @@
 import cv2
 
-vid = cv2.VideoCapture(2)
+vid = cv2.VideoCapture('rtmp://192.168.0.104/live')
 
 while True:
     res, img = vid.read()
