@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from utilites import dist, draw_landmarks_on_image
+from utilites import dist3, draw_landmarks_on_image
 
 from keras.models import load_model
 import tensorflow as tf
@@ -82,7 +82,7 @@ class GestureRecognizer:
         return np.array(res, dtype='float32')
     
     def is_click(self, landmarks):
-        return dist(landmarks[0, 4], landmarks[0, 8]) / dist(landmarks[0, 0], landmarks[0, 8]) <= 0.2
+        return dist3(landmarks[0, 4], landmarks[0, 8]) / dist3(landmarks[0, 0], landmarks[0, 8]) <= 0.2
     
     def get_func_from_saved_model(self, saved_model_dir):
         saved_model_loaded = tf.saved_model.load(

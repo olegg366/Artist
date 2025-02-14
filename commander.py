@@ -34,6 +34,8 @@ class Commander:
         canvas_w, canvas_h, 
         shiftx, shifty,
         flag_recognition, flag_recognition_result,
+        stop,
+        flag_start,
         cpp_path: str, 
         lib_folder: str, 
         video_id: int,
@@ -60,6 +62,8 @@ class Commander:
         self.shiftx = shiftx
         self.shifty = shifty
         
+        self.stop = stop
+        self.flag_start = flag_start
         self.cpp_path = cpp_path
         self.lib_folder = lib_folder
         self.video_id = video_id
@@ -75,6 +79,7 @@ class Commander:
         self.flag_recognition_result.value = 0
         self.flag_drawing = False
         self.flag_end = False
+        self.flag_reset = True
         self.flag_drawing_line = False
         self.last_showed_end_time = -1
         self.gestures_in_row = {
@@ -97,30 +102,31 @@ class Commander:
             fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
             fx = recognition_results.image.shape[1] - fx * recognition_results.image.shape[1]
             fy *= recognition_results.image.shape[0]
-            if ('Thumb_Up' in recognition_results.gestures and time() - self.last_showed_end_time > 3) or 'Thumb_Down' in recognition_results.gestures:
+            if check_gestures and (('Thumb_Up' in recognition_results.gestures and time() - self.last_showed_end_time > 3) or 'Thumb_Down' in recognition_results.gestures):
+                self.last_showed_end_time = time()
                 return 'Thumb_Up' in recognition_results.gestures
             self.move(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
-        return
+        return None
         
     def listen(self):
-        recognizer = sr.Recognizer()
-        translator = Translator()
+        # recognizer = sr.Recognizer()
+        # translator = Translator()
         while not self.flag_recognition_result.value:
             self.flag_recognition_result.value = 0
             self.flag_recognition.value = 0
-            with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source)
-                self.commands_queue.put(('print_text', ('Говорите...', )))
-                audio = recognizer.listen(source, phrase_time_limit=5)
-            try:
-                text = recognizer.recognize_google(audio, language='ru-RU')
-            except sr.exceptions.UnknownValueError:
-                self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
-                tm = time()
-                self.move_while(lambda: time() - tm <= 2000)
-                continue
-            text_en = translator.translate(text, src='ru', dest='en').text
-            # text, text_en = 'ананас', 'pineapple'
+            # with sr.Microphone() as source:
+            #     recognizer.adjust_for_ambient_noise(source)
+            #     self.commands_queue.put(('print_text', ('Говорите...', )))
+            #     audio = recognizer.listen(source, phrase_time_limit=5)
+            # try:
+            #     text = recognizer.recognize_google(audio, language='ru-RU')
+            # except sr.exceptions.UnknownValueError:
+            #     self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
+            #     tm = time()
+            #     self.move_while(lambda: time() - tm <= 2000)
+            #     continue
+            # text_en = translator.translate(text, src='ru', dest='en').text
+            text, text_en = 'ананас', 'pineapple'
             print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
@@ -188,6 +194,8 @@ class Commander:
         self.generator = Generator(self.generation_queue, self.commands_queue)
         
         self.drawer = Drawer(
+            self.stop,
+            self.flag_start,
             self.images_queue,
             self.cpp_path, 
             self.lib_folder, 
@@ -218,6 +226,9 @@ class Commander:
                 self.plot()
                 self.commands_queue.put(('change_status', None))
                 self.commands_queue.put(('print_text', (f'', )))
+                if self.flag_reset:
+                    self.commands_queue.put(('reset_image', None))
+                self.reset_flags()
                 
     def generate(self, text_ru: str, text_en: str):
         self.commands_queue.put(('print_text', (f'Подождите, идёт генерация по запросу {text_ru}...', )))
@@ -233,12 +244,10 @@ class Commander:
         self.commands_queue.put(('display', (self.gen, )))
         self.commands_queue.put(('remove_progressbar', None))
         self.commands_queue.put(('print_text', (f'Выберите изображение', )))
-        self.reset_flags()
-        self.last_showed_end_time = time()
     
     def plot(self):
         self.move_while(lambda: self.images_queue.empty())
-        self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
+        self.commands_queue.put(('print_text', (f'Подождите, изображение обрабатывается...', )))
         image_idx = self.images_queue.get()
         image = self.gen[image_idx]
         
@@ -247,8 +256,29 @@ class Commander:
         
         self.move_while(lambda: self.images_queue.empty())
         self.commands_queue.put(('display_two', ([Image.fromarray((self.images_queue.get() * 255).astype('uint8')), image], )))
-        
-        self.move_while(lambda: bool(self.flag_end_plotting.value))
+        self.commands_queue.put(('print_text', (f'Вам подходит то, что получится?', )))
+        self.commands_queue.put(('check_recognition', None))
+        self.flag_recognition.value = 0
+        self.flag_recognition_result.value = 0
+        res = self.move_while(lambda: not self.flag_recognition.value, check_gestures=True)
+        if res is not None:
+            self.flag_recognition_result.value = res
+        if not self.flag_recognition_result.value:
+            self.flag_reset = False
+            self.commands_queue.put(('delete_questions', None))
+            return
+        else:
+            self.flag_start.value = 1
+        self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
+        self.commands_queue.put(('delete_questions', None))
+        while True:
+            ret = self.move_while(lambda: not self.flag_end_plotting.value, check_gestures=True)
+            if ret is not None:
+                if not ret:
+                    self.stop.value = 1
+                    break
+            else: break
+                
         self.commands_queue.put(('print_text', (f'Готово!', )))
         
         tm = time()
@@ -282,6 +312,9 @@ if __name__ == '__main__':
     flag_recognition = Value('i', 0)
     flag_recognition_result = Value('i', 0)
     
+    stop = Value('i', 0)
+    flag_start = Value('i', 0)
+    
     frames_queue = Queue(-1)
     commands_queue = Queue(-1)
     images_queue = Queue(-1)
@@ -308,6 +341,8 @@ if __name__ == '__main__':
         shiftx, shifty, 
         flag_recognition, 
         flag_recognition_result,
+        stop,
+        flag_start,
         cpp_path, 
         lib_folder, 
         second_video_id,

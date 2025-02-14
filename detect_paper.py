@@ -3,6 +3,7 @@ import numpy as np
 from skimage.feature import canny
 from skimage.measure import regionprops, label
 from skimage.morphology import binary_dilation, square
+from utilites import dist2
 
 # Функция для переупорядочивания вершин четырехугольника по часовой стрелке
 def reorder_quadrilateral_vertices(vertices):
@@ -63,7 +64,12 @@ def detect_paper(frame, warp=False):
             
             peri = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
-            # cv2.drawContours(frame, [approx], -1, (0, 0, 255), 5)
+            
+            bbox = cv2.boxPoints(cv2.minAreaRect(approx))
+            w, h = sorted([dist2(bbox[0], bbox[1]), dist2(bbox[1], bbox[2])])
+            if abs(w / h - 1) > 0.7:
+                continue
+            cv2.drawContours(frame, [cv2.boxPoints(cv2.minAreaRect(approx)).astype('int')], -1, (0, 0, 255), 5)
             if not points.size:
                 points = approx[:, 0]
             else:

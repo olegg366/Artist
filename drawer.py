@@ -251,6 +251,8 @@ def dist(x1, y1, x2, y2):
 class Drawer:
     def __init__(
         self,
+        stop,
+        flag_start,
         images_queue: Queue,
         cpp_path: str, 
         lib_folder: str, 
@@ -261,6 +263,8 @@ class Drawer:
         port: str = '/dev/ttyACM0',
         baudrate: int = 115200,
     ):
+        self.stop = stop
+        self.flag_start = flag_start
         self.images_queue = images_queue
         self.cpp_path = cpp_path
         self.lib_folder = lib_folder
@@ -289,13 +293,13 @@ class Drawer:
         points = []
         cnt = 0
         
-        print("Get ready...")
         self.plotter.move_to(350, 0, 16000)
         
         video = cv2.VideoCapture(self.video_id)
         video.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
         video.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
         
+        print("Get ready...")
         try:
             while True:
                 ret, frame = video.read()
@@ -315,6 +319,7 @@ class Drawer:
         except KeyboardInterrupt:
             video.release()
             cv2.destroyAllWindows()
+            del video
             self.plotter.move_to(0, 0, 16000)
             raise(KeyboardInterrupt)
         
@@ -349,7 +354,8 @@ class Drawer:
         
     def draw_trajectory(self, trajectory, image):
         ax = plt.subplot()
-        ax.imshow(image.astype('uint8'))
+        image = np.full((*image.shape, 3), 255)
+        ax.imshow(image.astype('uint8'), vmin=0)
         i = 0
         end = 0
         while i < len(trajectory):
@@ -359,7 +365,7 @@ class Drawer:
             end = i
             while i < len(trajectory) and trajectory[i, 0] != 1e9:
                 i += 1
-            ax.add_line(Line2D(trajectory[end:i, 1], trajectory[end:i, 0], lw=1, color='blue'))
+            ax.add_line(Line2D(trajectory[end:i, 1], image.shape[1] - trajectory[end:i, 0], lw=1, color='blue'))
         return self.read_image_from_ax(ax)
     
     def get_trajectory(self, img, crop=False, show=False):
@@ -384,6 +390,7 @@ class Drawer:
         print('got trajectory')
         # print(trajectory)
         trajectory = np.array(trajectory)
+        drawed = self.draw_trajectory(trajectory, img)
         angle, w, sx, sy, frame = self.compute_angle()
         index = np.any(np.abs(trajectory) != [1e9, 1e9], axis=1)
         
@@ -395,7 +402,7 @@ class Drawer:
         # print(trajectory.tolist())
         trajectory = trajectory[:, [1, 0]]
         if show:
-            return trajectory, self.draw_trajectory(trajectory, frame)
+            return trajectory, drawed
         
         return trajectory
     
@@ -409,9 +416,10 @@ class Drawer:
             self.lib_folder, 
             self.cuda_version, self.gpu_arch
         )
-        self.plotter = Plotter(self.video_id, port=self.port, baudrate=self.baudrate)
+        self.plotter = Plotter(self.video_id, self.stop, port=self.port, baudrate=self.baudrate)
         
         trajectory, image = self.get_trajectory(image, show=True)
         self.images_queue.put(image)
+        while not self.flag_start.value: continue
         self.plotter.plot_trajectory(trajectory)
         self.flag_end.value = 1

@@ -499,6 +499,11 @@ class App():
     
     def select_image(self, k):
         self.images_queue.put(k)
+        
+    def reset_image(self):
+        self.image = Image.new("RGB", (self.canvas.winfo_width(), self.canvas.winfo_height()), (255, 255, 255))
+        self.draw = ImageDraw.Draw(self.image)
+        self.canvas.delete('all')
             
     def display_one(self, img):
         self.image_storage.pack_forget()
@@ -529,10 +534,7 @@ class App():
         self.image_panels = []
         
         for i, img in enumerate(images):
-            if img.size[0] < img.size[1]:
-                img = img.resize((w,  int(w / img.size[1] * img.size[0])))
-            else: 
-                img = img.resize((int(h / img.size[0] * img.size[1]), h))
+            img = img.resize((w,  int(w / img.size[1] * img.size[0])))
             self.display_imgs.append(ImageTk.PhotoImage(img))
             self.image_panels.append(tk.Label(
                 self.image_storage, 
@@ -542,11 +544,7 @@ class App():
             self.image_panels[i].grid(row=0, column=i, rowspan=2, padx=5, pady=5)
         self.image_storage.pack(side='top', padx=[self.fr_ctrl.winfo_width(), 0])
     
-    def display(self, images: list):
-        self.image = Image.new("RGB", (self.canvas.winfo_width(), self.canvas.winfo_height()), (255, 255, 255))
-        self.draw = ImageDraw.Draw(self.image)
-        self.canvas.delete('all')
-        
+    def display(self, images: list):        
         w, h = self.canvas.winfo_width(), self.canvas.winfo_height()
         w = int(w / 2)
         h = int(h / 2)

@@ -13,11 +13,13 @@ class HandChecker:
         self, 
         video_id, 
         pause, 
-        landmarker_path = 'mlmodels/hand_landmarker.task'
+        landmarker_path = 'mlmodels/hand_landmarker.task',
+        running_mode = 'VIDEO'
     ):
         self.video_id = video_id
         self.pause = pause
         self.landmarker_path = landmarker_path
+        self.running_mode = running_mode
     
     def start_loop(self):
         self.terminate_flag = False
@@ -42,7 +44,6 @@ class HandChecker:
         )
         
         self.landmarker = HandLandmarker.create_from_options(options)
-        self.recognizer = load_model(self.recognizer_path)
         while not self.terminate_flag:
             flag, img = self.video.read()
             
@@ -74,7 +75,7 @@ def calculate_distance(ax, ay, bx, by):
         
 
 class Plotter(serial.Serial):
-    def __init__(self, video_id, speed = 8000, *args, **kwargs):
+    def __init__(self, video_id, stop, speed = 8000, *args, **kwargs):
         port = kwargs['port']
         os.system(f'echo Dragon2009 | sudo -S chmod 666 {port}')
         super(Plotter, self).__init__(*args, **kwargs)
@@ -82,6 +83,8 @@ class Plotter(serial.Serial):
         self.write_command('G90')
         
         self.calibrate_servo()
+        
+        self.stop = stop
         
         self.video_id = video_id
         self.pause = Value('i', 0)
@@ -168,10 +171,13 @@ class Plotter(serial.Serial):
                 timestamp += 1
                 
                 if self.pause.value: continue
+                if self.stop.value:
+                    self.stop.value = 0
+                    break
                 
                 gcode = gcode_commands[i]
                 i += 1
-                print(gcode)
+                # print(gcode)
                 if isinstance(gcode, str):
                     self.control_servo(gcode)
                     sleep(0.1)
