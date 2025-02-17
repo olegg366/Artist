@@ -16,12 +16,21 @@ from gesture_recognizer import GestureRecognizer
 from generator import Generator
 from interface import App
 from drawer import Drawer
+from string import punctuation
 
 import speech_recognition as sr
 from googletrans import Translator
 
 
 pg.FAILSAFE = False
+
+
+def remove_punctuation(s):
+    res = ''
+    for c in s.lower():
+        if c not in punctuation:
+            res += c
+    return res.replace(' ', '_')
 
 
 class Commander:
@@ -109,24 +118,26 @@ class Commander:
         return None
         
     def listen(self):
-        # recognizer = sr.Recognizer()
-        # translator = Translator()
+        recognizer = sr.Recognizer()
+        translator = Translator()
         while not self.flag_recognition_result.value:
             self.flag_recognition_result.value = 0
             self.flag_recognition.value = 0
-            # with sr.Microphone() as source:
-            #     recognizer.adjust_for_ambient_noise(source)
-            #     self.commands_queue.put(('print_text', ('Говорите...', )))
-            #     audio = recognizer.listen(source, phrase_time_limit=5)
-            # try:
-            #     text = recognizer.recognize_google(audio, language='ru-RU')
-            # except sr.exceptions.UnknownValueError:
-            #     self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
-            #     tm = time()
-            #     self.move_while(lambda: time() - tm <= 2000)
-            #     continue
-            # text_en = translator.translate(text, src='ru', dest='en').text
-            text, text_en = 'ананас', 'pineapple'
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source)
+                self.commands_queue.put(('print_text', ('Говорите...', )))
+                audio = recognizer.listen(source, phrase_time_limit=5)
+            try:
+                self.commands_queue.put(('print_text', ('Идет распознавание...', )))
+                text = recognizer.recognize_google(audio, language='ru-RU')
+            except sr.exceptions.UnknownValueError as e:
+                self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
+                tm = time()
+                self.move_while(lambda: time() - tm <= 2)
+                continue
+            self.commands_queue.put(('print_text', ('Идет перевод...', )))
+            text_en = translator.translate(text, src='ru', dest='en').text
+            # text, text_en = 'ананас', 'pineapple'
             print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
@@ -223,11 +234,12 @@ class Commander:
                 text_ru, text_en = self.listen()
                 self.commands_queue.put(('delete_questions', None))
                 self.generate(text_ru, text_en)
-                self.plot()
+                self.plot(text_en)
                 self.commands_queue.put(('change_status', None))
                 self.commands_queue.put(('print_text', (f'', )))
                 if self.flag_reset:
                     self.commands_queue.put(('reset_image', None))
+                self.commands_queue.put(('remove_img', None))
                 self.reset_flags()
                 
     def generate(self, text_ru: str, text_en: str):
@@ -245,11 +257,12 @@ class Commander:
         self.commands_queue.put(('remove_progressbar', None))
         self.commands_queue.put(('print_text', (f'Выберите изображение', )))
     
-    def plot(self):
+    def plot(self, prompt):
         self.move_while(lambda: self.images_queue.empty())
         self.commands_queue.put(('print_text', (f'Подождите, изображение обрабатывается...', )))
         image_idx = self.images_queue.get()
         image = self.gen[image_idx]
+        image.save('images/generated/' + remove_punctuation(prompt) + '.png')
         
         self.commands_queue.put(('display_one', (image, )))
         self.drawer.start(np.array(image))
@@ -267,11 +280,14 @@ class Commander:
             self.flag_reset = False
             self.commands_queue.put(('delete_questions', None))
             return
-        else:
-            self.flag_start.value = 1
-        self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
+            
+        self.commands_queue.put(('print_text', (f'Пожалуйста, поместите оптический датчик под маркер и покажите большой палец.', )))
         self.commands_queue.put(('delete_questions', None))
+        res = self.move_while(lambda: True, check_gestures=True)
+        self.flag_start.value = 1
+        self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
         while True:
+            self.flag_end_plotting.value = 0
             ret = self.move_while(lambda: not self.flag_end_plotting.value, check_gestures=True)
             if ret is not None:
                 if not ret:
@@ -282,7 +298,7 @@ class Commander:
         self.commands_queue.put(('print_text', (f'Готово!', )))
         
         tm = time()
-        self.move_while(lambda: time() - tm <= 3000)
+        self.move_while(lambda: time() - tm <= 3)
     
     def terminate(self):
         self.terminate_flag = True

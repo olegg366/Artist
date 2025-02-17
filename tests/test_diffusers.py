@@ -48,12 +48,12 @@ pipe.unet.to(memory_format=torch.channels_last)
 pipe.vae.to(memory_format=torch.channels_last)
 
 # Определение текстового запроса и негативного запроса
-prompt = "ship, high contrast grayscale drawing, only contours, wide lines, white background"
+prompt = "airplane, high contrast grayscale drawing, only contours, wide lines, white background"
 negative_prompt = "many lines, bad anatomy, worst quality, bad quality"
 
 # Загрузка и предобработка изображения с контурами
 img = imread('images/scribble.png')
-img = invert(img)[..., :3]  # Инвертирование цветов изображения
+img = invert(img)  # Инвертирование цветов изображения
 img[img != 255] = 0  # Установка всех пикселей, кроме белых, в 0
 img[img == 255] = 1  # Установка белых пикселей в 1
 
@@ -65,6 +65,7 @@ with torch.inference_mode():
         num_inference_steps=50, 
         height=512, width=512, 
         negative_prompt=negative_prompt, 
+        num_images_per_prompt=3,
         output_type='np'
     ).images[0] * 255
     

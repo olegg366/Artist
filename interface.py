@@ -263,8 +263,8 @@ class App():
             self.fr_ctrl,
             background=self.btclr,
             foreground=self.bttextclr,
-            callback=self.gen,
-            text='Готово!', 
+            callback=self.eraser,
+            text='Ластик', 
             height=self.bth,
             btnpressclr=self.btpress,
             font=self.btfont,
@@ -274,7 +274,7 @@ class App():
         self.bt_gen.pack(side='top', fill='x', pady=self.pad)
 
         #картинка, чтобы затем генерировать
-        self.image = Image.new("RGB", (512, 512), (255, 255, 255))
+        self.image = Image.new("RGB", (self.canvas.winfo_width(), self.canvas.winfo_height()), (255, 255, 255))
         self.draw = ImageDraw.Draw(self.image)
         
         #предыдущие высота и ширина canvas
@@ -347,6 +347,13 @@ class App():
         self.flag_recognition.value = 0
         self.flag_answer.value = 1
         
+        if self.line_options['fill'] == 'black':
+            self.line_options['fill'] = 'white'
+            self.line_options['width'] = 30
+        else:
+            self.line_options['fill'] = 'black'
+            self.line_options['width'] = 10
+        
     def print_instructions(self):
         text = ["- начать/закончить", "- перемещать курсор", "- рисовать", "- очистить все"]
         imgs_names = ["thumb_up.png", "point_up.png", "click.png", "open.png"]
@@ -391,6 +398,9 @@ class App():
     def setup_progressbar(self):
         self.bt_yes.pack_forget()
         self.bt_no.pack_forget()
+        
+        self.progressval = 0
+        self.style.configure('text.Horizontal.TProgressbar', text=f'{self.progressval}/{self.progressmax}')
         
         self.fr_progressbar.pack(anchor='s', fill='x', padx=15, pady=2)
         self.fr_progressbar.pack_propagate(False)
@@ -441,6 +451,7 @@ class App():
         
     def return_image(self):
         self.images_queue.put(self.image)
+        self.image.save('images/scribble.png')
 
     def update(self):
         if not self.frames_queue.empty():

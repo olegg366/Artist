@@ -421,5 +421,6 @@ class Drawer:
         trajectory, image = self.get_trajectory(image, show=True)
         self.images_queue.put(image)
         while not self.flag_start.value: continue
+        self.plotter.calibrate_servo()
         self.plotter.plot_trajectory(trajectory)
         self.flag_end.value = 1

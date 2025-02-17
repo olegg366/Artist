@@ -26,7 +26,6 @@ class Generator:
         img = invert(img)
         img[img != 255] = 0 
         img[img == 255] = 1 
-        image = Image.fromarray(img)
         
         print('Настройка Stable Diffusion...')
         controlnet = ControlNetModel.from_pretrained("lllyasviel/sd-controlnet-scribble", 
@@ -54,9 +53,11 @@ class Generator:
         tomesd.apply_patch(pipe)
         
         print('Stable Diffusion успешно настроен.')
+        
+        base_prompt = ', high contrast grayscale drawing, only contours, wide lines, white background'
 
         generated_images = pipe(
-            prompt, image, 
+            prompt + base_prompt, [img], 
             num_inference_steps=50, 
             negative_prompt=negative_prompt,
             height=512, width=512, 

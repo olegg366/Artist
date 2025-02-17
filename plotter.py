@@ -82,12 +82,11 @@ class Plotter(serial.Serial):
         sleep(2)
         self.write_command('G90')
         
-        self.calibrate_servo()
-        
         self.stop = stop
         
         self.video_id = video_id
         self.pause = Value('i', 0)
+        self.down = 100
         self.speed = speed
         
     def write_command(self, command: str):
@@ -127,7 +126,9 @@ class Plotter(serial.Serial):
         if command == 'up': angle = 90
         elif command == 'maxup': angle = 0
         elif command == 'down': angle = self.down
-        return self.servo(angle)
+        ret = self.servo(angle)
+        sleep(angle * 0.002)
+        return ret
     
     def generate_gcode(self, trajectory: list):
         """
@@ -180,13 +181,12 @@ class Plotter(serial.Serial):
                 # print(gcode)
                 if isinstance(gcode, str):
                     self.control_servo(gcode)
-                    sleep(0.1)
                     continue
                 if gcode[:2] == (prev_x, prev_y): 
                     continue
                 self.move_to(*gcode)
-                d = calculate_distance(prev_x, prev_y, gcode[0], gcode[1]) / (gcode[2] / 60)
-                sleep(d + 0.1)
+                d = calculate_distance(prev_x, prev_y, gcode[0], gcode[1]) * 0.4 / (gcode[2] / 60)
+                sleep(d)
                 prev_x, prev_y = gcode[:2]
         except KeyboardInterrupt:
             pass
@@ -214,5 +214,5 @@ class Plotter(serial.Serial):
             self.move_to(0, 0)
             
 if __name__ == '__main__':
-    plotter = Plotter(2, port='/dev/ttyACM0', baudrate=115200)
+    plotter = Plotter(2, Value('i', 0), port='/dev/ttyACM0', baudrate=115200)
     plotter.interface()
