@@ -347,6 +347,7 @@ class App():
         self.flag_recognition.value = 0
         self.flag_answer.value = 1
         
+    def eraser(self):
         if self.line_options['fill'] == 'black':
             self.line_options['fill'] = 'white'
             self.line_options['width'] = 30

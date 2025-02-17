@@ -63,8 +63,6 @@ class Commander:
         self.flag_recognition = flag_recognition
         self.flag_recognition_result = flag_recognition_result
         
-        self.reset_flags()
-        
         self.canvas_w = canvas_w
         self.canvas_h = canvas_h
         
@@ -81,11 +79,16 @@ class Commander:
         self.gpu_arch = gpu_arch
         self.port = port
         self.baudrate = baudrate
+        
+        self.reset_flags()
 
         
     def reset_flags(self):
         self.flag_recognition.value = 0
         self.flag_recognition_result.value = 0
+        self.stop.value = 0
+        self.flag_start.value = 0
+        self.flag_end_plotting.value = 0
         self.flag_drawing = False
         self.flag_end = False
         self.flag_reset = True
@@ -97,7 +100,7 @@ class Commander:
             'drag': 0
         }
     
-    def move_while(self, cond: callable, check_gestures = False):
+    def move_while(self, cond: callable, check_gestures = False, delay = 3):
         tm = time()
         while cond():
             if self.frames_queue.empty():
@@ -111,7 +114,7 @@ class Commander:
             fx, fy = (recognition_results.landmarks[0, 8, :2] + recognition_results.landmarks[0, 4, :2]) / 2
             fx = recognition_results.image.shape[1] - fx * recognition_results.image.shape[1]
             fy *= recognition_results.image.shape[0]
-            if check_gestures and (('Thumb_Up' in recognition_results.gestures and time() - self.last_showed_end_time > 3) or 'Thumb_Down' in recognition_results.gestures):
+            if check_gestures and (('Thumb_Up' in recognition_results.gestures and time() - self.last_showed_end_time > delay) or ('Thumb_Down' in recognition_results.gestures and time() - self.last_showed_end_time > delay)):
                 self.last_showed_end_time = time()
                 return 'Thumb_Up' in recognition_results.gestures
             self.move(recognition_results.gestures, fx, fy, recognition_results.image.shape[:2])
@@ -123,21 +126,21 @@ class Commander:
         while not self.flag_recognition_result.value:
             self.flag_recognition_result.value = 0
             self.flag_recognition.value = 0
-            with sr.Microphone() as source:
-                recognizer.adjust_for_ambient_noise(source)
-                self.commands_queue.put(('print_text', ('Говорите...', )))
-                audio = recognizer.listen(source, phrase_time_limit=5)
-            try:
-                self.commands_queue.put(('print_text', ('Идет распознавание...', )))
-                text = recognizer.recognize_google(audio, language='ru-RU')
-            except sr.exceptions.UnknownValueError as e:
-                self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
-                tm = time()
-                self.move_while(lambda: time() - tm <= 2)
-                continue
-            self.commands_queue.put(('print_text', ('Идет перевод...', )))
-            text_en = translator.translate(text, src='ru', dest='en').text
-            # text, text_en = 'ананас', 'pineapple'
+            # with sr.Microphone() as source:
+            #     recognizer.adjust_for_ambient_noise(source)
+            #     self.commands_queue.put(('print_text', ('Говорите...', )))
+            #     audio = recognizer.listen(source, phrase_time_limit=5)
+            # try:
+            #     self.commands_queue.put(('print_text', ('Идет распознавание...', )))
+            #     text = recognizer.recognize_google(audio, language='ru-RU')
+            # except sr.exceptions.UnknownValueError as e:
+            #     self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
+            #     tm = time()
+            #     self.move_while(lambda: time() - tm <= 2)
+            #     continue
+            # self.commands_queue.put(('print_text', ('Идет перевод...', )))
+            # text_en = translator.translate(text, src='ru', dest='en').text
+            text, text_en = 'ананас', 'pineapple'
             print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
@@ -185,7 +188,7 @@ class Commander:
         elif self.flag_drawing and gestures.count('Open_Palm') == 2:
             self.commands_queue.put(('delete', None))
         else:
-            if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 5: 
+            if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 0: 
                 if not self.flag_drawing:
                     self.flag_drawing = True
                     self.flag_drawing_line = False
@@ -274,21 +277,20 @@ class Commander:
         self.flag_recognition.value = 0
         self.flag_recognition_result.value = 0
         res = self.move_while(lambda: not self.flag_recognition.value, check_gestures=True)
+        self.commands_queue.put(('delete_questions', None))
         if res is not None:
             self.flag_recognition_result.value = res
         if not self.flag_recognition_result.value:
             self.flag_reset = False
-            self.commands_queue.put(('delete_questions', None))
+            self.flag_start.value = 2
             return
-            
-        self.commands_queue.put(('print_text', (f'Пожалуйста, поместите оптический датчик под маркер и покажите большой палец.', )))
-        self.commands_queue.put(('delete_questions', None))
+        self.commands_queue.put(('print_text', (f'Пожалуйста, маркер в держатель и покажите большой палец.', )))
         res = self.move_while(lambda: True, check_gestures=True)
         self.flag_start.value = 1
         self.commands_queue.put(('print_text', (f'Подождите, пока ваше изображение нарисуется...', )))
         while True:
             self.flag_end_plotting.value = 0
-            ret = self.move_while(lambda: not self.flag_end_plotting.value, check_gestures=True)
+            ret = self.move_while(lambda: not self.flag_end_plotting.value, check_gestures=True, delay=60)
             if ret is not None:
                 if not ret:
                     self.stop.value = 1

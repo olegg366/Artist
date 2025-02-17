@@ -88,6 +88,7 @@ class Plotter(serial.Serial):
         self.pause = Value('i', 0)
         self.down = 100
         self.speed = speed
+        self.prev_angle = 0
         
     def write_command(self, command: str):
         command += '\n'
@@ -95,6 +96,7 @@ class Plotter(serial.Serial):
         return self.read_until(b'ok\n').decode()
     
     def servo(self, angle):
+        self.write_command('M400')
         return self.write_command(f'M280 P0 S{angle}')
     
     def get_desired_angle(angle):
@@ -104,6 +106,8 @@ class Plotter(serial.Serial):
         
     def calibrate_servo(self):
         angle = 0
+        self.servo(0)
+        self.move_to(500, 0, 16000)
         while True:
             self.servo(angle)
             angle += 5
@@ -127,7 +131,8 @@ class Plotter(serial.Serial):
         elif command == 'maxup': angle = 0
         elif command == 'down': angle = self.down
         ret = self.servo(angle)
-        sleep(angle * 0.002)
+        sleep(abs(self.prev_angle - angle) * 0.002)
+        self.prev_angle = angle
         return ret
     
     def generate_gcode(self, trajectory: list):
@@ -185,8 +190,6 @@ class Plotter(serial.Serial):
                 if gcode[:2] == (prev_x, prev_y): 
                     continue
                 self.move_to(*gcode)
-                d = calculate_distance(prev_x, prev_y, gcode[0], gcode[1]) * 0.4 / (gcode[2] / 60)
-                sleep(d)
                 prev_x, prev_y = gcode[:2]
         except KeyboardInterrupt:
             pass
@@ -206,7 +209,7 @@ class Plotter(serial.Serial):
                 if command in ['up', 'down', 'maxup']:
                     print(self.control_servo(command))
                 elif command[0] == 'X' or command[0] == 'Y':
-                    print(self.write_command('G1 ' + command + '\n'))
+                    print(self.write_command('G1 ' + command))
                 else:
                     print(self.write_command(command))       
         except KeyboardInterrupt:

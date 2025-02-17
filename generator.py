@@ -22,7 +22,9 @@ class Generator:
         self.progress_queue.put(('progressbar_step', None))
         return callback_kwargs
     
-    def generate(self, img: np.ndarray, prompt: str, negative_prompt: str = 'bad anatomy, worst quality, bad quality'):
+    def generate(self, img: np.ndarray, prompt: str, negative_prompt: str = 'many lines, bad anatomy, worst quality, bad quality'):
+        self.output_queue.put([Image.open('images/gen.png'), Image.open('images/gen.png'), Image.open('images/gen.png')])
+        return
         img = invert(img)
         img[img != 255] = 0 
         img[img == 255] = 1 
@@ -54,7 +56,7 @@ class Generator:
         
         print('Stable Diffusion успешно настроен.')
         
-        base_prompt = ', high contrast grayscale drawing, only contours, wide lines, white background'
+        base_prompt = ', grayscale drawing, only contours, wide lines, white background, great quality'
 
         generated_images = pipe(
             prompt + base_prompt, [img], 
@@ -68,9 +70,7 @@ class Generator:
         del pipe, controlnet
         gc.collect()
         torch.cuda.empty_cache()
-        
-        # generated_images = [Image.open('images/gen.png'), Image.open('images/gen.png'), Image.open('images/gen.png')]
-    
+            
         self.output_queue.put(generated_images)
     
     def start_generation(self, image: np.ndarray, prompt: str, negative_prompt: str = ''):

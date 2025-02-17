@@ -210,7 +210,7 @@ def shift_coords(sx: float, sy: float, angle: float, matrix: np.ndarray, k: floa
     Возвращает:
     np.ndarray: Сдвинутая матрица координат.
     """
-    matrix *= (k / 1.1)
+    matrix *= k
     rm = np.array([[cos(angle), sin(angle)],
                    [-sin(angle), cos(angle)]])
     rotated = np.matmul(matrix, rm)
@@ -326,11 +326,12 @@ class Drawer:
         video.release()
         self.plotter.move_to(0, 0, 16000)
         
+        idx = 0
         w, h = sorted([dist(*points[0], *points[1]), dist(*points[1], *points[2])])
-        for i in range(len(points)):
+        for i in range(1, len(points)):
             x = dist(*points[i], *points[(i + 1) % len(points)])
-            y = dist(*points[i], *points[(i - 1 + len(points)) % len(points)])
-            if abs(x - h) <= 2 and abs(y - w) <= 2:
+            y = dist(*points[i], *points[i - 1])
+            if x == h and y == w:
                 idx = i
                 break
     
@@ -391,19 +392,22 @@ class Drawer:
         # print(trajectory)
         trajectory = np.array(trajectory)
         drawed = self.draw_trajectory(trajectory, img)
+        if show:
+            return trajectory, drawed, img
+        
+        return trajectory
+
+    def shift_trajectory(self, trajectory, img):
         angle, w, sx, sy, frame = self.compute_angle()
         index = np.any(np.abs(trajectory) != [1e9, 1e9], axis=1)
         
-        k = w / max(img.shape)
+        k = w / max(img.shape) / 1.1
         test_shift = shift_coords(sx, sy, pi / 2 - angle, trajectory[index], k)
         if np.max(test_shift) > max(frame.shape): angle = pi/2 + angle
         else: angle = pi / 2 - angle
         trajectory[index] = shift_coords(sx, sy, angle, trajectory[index], k)
         # print(trajectory.tolist())
         trajectory = trajectory[:, [1, 0]]
-        if show:
-            return trajectory, drawed
-        
         return trajectory
     
     def start(self, image: np.ndarray):
@@ -418,9 +422,12 @@ class Drawer:
         )
         self.plotter = Plotter(self.video_id, self.stop, port=self.port, baudrate=self.baudrate)
         
-        trajectory, image = self.get_trajectory(image, show=True)
+        trajectory, image, base_img = self.get_trajectory(image, show=True)
         self.images_queue.put(image)
         while not self.flag_start.value: continue
+        if self.flag_start.value == 2:
+            return
+        trajectory = self.shift_trajectory(trajectory, base_img)
         self.plotter.calibrate_servo()
         self.plotter.plot_trajectory(trajectory)
         self.flag_end.value = 1

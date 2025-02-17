@@ -55,7 +55,6 @@ def detect_paper(frame, warp=False):
     # Находим контуры на маске
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
-    
     points = np.array([])
 
     # Обрабатываем каждый контур
@@ -108,6 +107,7 @@ def detect_paper(frame, warp=False):
             rect = lb == (mx + 1)
             nz = np.array(list(zip(*np.nonzero(rect))))
             pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))
+            cv2.drawContours(roi, [pnts], -1, (0, 255, 0), 3)
             if pnts.size:
                 try:
                     pnts = scale_contour(pnts, 0.8)
