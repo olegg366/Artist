@@ -117,6 +117,7 @@ class Plotter(serial.Serial):
                 break
         desired = Plotter.get_desired_angle(angle)
         self.down = desired
+        self.move_to(0, 0, 16000)
         self.servo(0)
         
     def control_servo(self, command: str):
@@ -210,6 +211,8 @@ class Plotter(serial.Serial):
                     print(self.control_servo(command))
                 elif command[0] == 'X' or command[0] == 'Y':
                     print(self.write_command('G1 ' + command))
+                elif command == 'calibrate':
+                    self.calibrate_servo()
                 else:
                     print(self.write_command(command))       
         except KeyboardInterrupt:

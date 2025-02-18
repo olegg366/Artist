@@ -36,7 +36,7 @@ def scale_contour(cnt, scale):
 
 # Основная функция для обнаружения бумаги и зеленых квадратов
 def detect_paper(frame, warp=False):
-    frame = frame[:, 200:950]
+    frame = frame[:, 200:900]
     frame = cv2.flip(frame, 1)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -106,8 +106,8 @@ def detect_paper(frame, warp=False):
             mx = areas.index(max(areas))
             rect = lb == (mx + 1)
             nz = np.array(list(zip(*np.nonzero(rect))))
-            pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))
-            cv2.drawContours(roi, [pnts], -1, (0, 255, 0), 3)
+            pnts = np.int64(cv2.boxPoints(cv2.minAreaRect(nz)))[:, [1, 0]]
+            pnts[:, 0] += 200
             if pnts.size:
                 try:
                     pnts = scale_contour(pnts, 0.8)

@@ -126,21 +126,21 @@ class Commander:
         while not self.flag_recognition_result.value:
             self.flag_recognition_result.value = 0
             self.flag_recognition.value = 0
-            # with sr.Microphone() as source:
-            #     recognizer.adjust_for_ambient_noise(source)
-            #     self.commands_queue.put(('print_text', ('Говорите...', )))
-            #     audio = recognizer.listen(source, phrase_time_limit=5)
-            # try:
-            #     self.commands_queue.put(('print_text', ('Идет распознавание...', )))
-            #     text = recognizer.recognize_google(audio, language='ru-RU')
-            # except sr.exceptions.UnknownValueError as e:
-            #     self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
-            #     tm = time()
-            #     self.move_while(lambda: time() - tm <= 2)
-            #     continue
-            # self.commands_queue.put(('print_text', ('Идет перевод...', )))
-            # text_en = translator.translate(text, src='ru', dest='en').text
-            text, text_en = 'ананас', 'pineapple'
+            with sr.Microphone() as source:
+                recognizer.adjust_for_ambient_noise(source)
+                self.commands_queue.put(('print_text', ('Говорите...', )))
+                audio = recognizer.listen(source, phrase_time_limit=5)
+            try:
+                self.commands_queue.put(('print_text', ('Идет распознавание...', )))
+                text = recognizer.recognize_google(audio, language='ru-RU')
+            except sr.exceptions.UnknownValueError as e:
+                self.commands_queue.put(('print_text', ('Распознавание не удалось. Попробуйте ещё раз.', )))
+                tm = time()
+                self.move_while(lambda: time() - tm <= 2)
+                continue
+            self.commands_queue.put(('print_text', ('Идет перевод...', )))
+            text_en = translator.translate(text, src='ru', dest='en').text
+            # text, text_en = 'ананас', 'pineapple'
             print(text_en)
             self.commands_queue.put(('print_text', (f'Вы сказали: {text}?', )))
             self.commands_queue.put(('check_recognition', None))
@@ -188,7 +188,7 @@ class Commander:
         elif self.flag_drawing and gestures.count('Open_Palm') == 2:
             self.commands_queue.put(('delete', None))
         else:
-            if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 0: 
+            if 'Thumb_Up' in gestures and time() - self.last_showed_end_time > 3: 
                 if not self.flag_drawing:
                     self.flag_drawing = True
                     self.flag_drawing_line = False

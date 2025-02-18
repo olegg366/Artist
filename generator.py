@@ -23,8 +23,8 @@ class Generator:
         return callback_kwargs
     
     def generate(self, img: np.ndarray, prompt: str, negative_prompt: str = 'many lines, bad anatomy, worst quality, bad quality'):
-        self.output_queue.put([Image.open('images/gen.png'), Image.open('images/gen.png'), Image.open('images/gen.png')])
-        return
+        # self.output_queue.put([Image.open('images/gen.png'), Image.open('images/gen.png'), Image.open('images/gen.png')])
+        # return
         img = invert(img)
         img[img != 255] = 0 
         img[img == 255] = 1 
@@ -56,7 +56,7 @@ class Generator:
         
         print('Stable Diffusion успешно настроен.')
         
-        base_prompt = ', grayscale drawing, only contours, wide lines, white background, great quality'
+        base_prompt = ', drawing, only contours, wide lines, white background, great quality'
 
         generated_images = pipe(
             prompt + base_prompt, [img], 

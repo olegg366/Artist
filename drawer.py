@@ -357,6 +357,7 @@ class Drawer:
         ax = plt.subplot()
         image = np.full((*image.shape, 3), 255)
         ax.imshow(image.astype('uint8'), vmin=0)
+        # plt.gcf().savefig('fig.png')
         i = 0
         end = 0
         while i < len(trajectory):
@@ -367,6 +368,7 @@ class Drawer:
             while i < len(trajectory) and trajectory[i, 0] != 1e9:
                 i += 1
             ax.add_line(Line2D(trajectory[end:i, 1], image.shape[1] - trajectory[end:i, 0], lw=1, color='blue'))
+        # plt.gcf().savefig('fig.png')
         return self.read_image_from_ax(ax)
     
     def get_trajectory(self, img, crop=False, show=False):
@@ -391,9 +393,8 @@ class Drawer:
         print('got trajectory')
         # print(trajectory)
         trajectory = np.array(trajectory)
-        drawed = self.draw_trajectory(trajectory, img)
         if show:
-            return trajectory, drawed, img
+            return trajectory, img
         
         return trajectory
 
@@ -407,7 +408,7 @@ class Drawer:
         else: angle = pi / 2 - angle
         trajectory[index] = shift_coords(sx, sy, angle, trajectory[index], k)
         # print(trajectory.tolist())
-        trajectory = trajectory[:, [1, 0]]
+        # trajectory = trajectory[:, [1, 0]]
         return trajectory
     
     def start(self, image: np.ndarray):
@@ -422,8 +423,9 @@ class Drawer:
         )
         self.plotter = Plotter(self.video_id, self.stop, port=self.port, baudrate=self.baudrate)
         
-        trajectory, image, base_img = self.get_trajectory(image, show=True)
-        self.images_queue.put(image)
+        trajectory, base_img = self.get_trajectory(image, show=True)
+        drawed = self.draw_trajectory(trajectory, base_img)
+        self.images_queue.put(drawed)
         while not self.flag_start.value: continue
         if self.flag_start.value == 2:
             return

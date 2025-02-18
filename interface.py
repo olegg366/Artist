@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 from multiprocessing import Queue, Value
 
-imgh = 180
+imgh = 240
 imgw = 320
 
 class RoundedFrame(tk.Canvas):

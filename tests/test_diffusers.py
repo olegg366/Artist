@@ -48,7 +48,7 @@ pipe.unet.to(memory_format=torch.channels_last)
 pipe.vae.to(memory_format=torch.channels_last)
 
 # Определение текстового запроса и негативного запроса
-prompt = "pineapple, grayscale drawing, only contours, wide lines, white background"
+prompt = "flower, drawing, only contours, wide lines, white background"
 negative_prompt = "many lines, bad anatomy, worst quality, bad quality"
 
 # Загрузка и предобработка изображения с контурами
